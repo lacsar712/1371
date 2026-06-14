@@ -3,6 +3,8 @@
   let user = null;
   let myCourses = [];
   let currentCourseId = null;
+  let allSemesters = [];
+  let currentSemesterId = null;
 
   function getStoredUser() {
     try {
@@ -63,16 +65,39 @@
     el.innerHTML = lines.join('');
   }
 
+  async function initSemesterDropdown() {
+    const { data } = await api('/api/semesters');
+    if (data && data.ok && Array.isArray(data.data)) {
+      allSemesters = data.data;
+      const select = document.getElementById('teacherSemesterSelect');
+      select.innerHTML = allSemesters.map((s) =>
+        `<option value="${s.id}">${escapeHtml(s.academicYear)} 第${s.semesterNumber}学期${s.isCurrent ? ' ★' : ''}</option>`
+      ).join('');
+      const current = allSemesters.find((s) => s.isCurrent);
+      if (current) {
+        select.value = current.id;
+        currentSemesterId = current.id;
+      }
+    }
+  }
+
   async function loadMyCourses() {
     const nav = document.getElementById('courseNav');
-    const { data } = await api('/api/teachers/' + user.id + '/courses');
+    const qs = currentSemesterId ? '?semesterId=' + currentSemesterId : '';
+    const { data } = await api('/api/teachers/' + user.id + '/courses' + qs);
     if (!data || !data.ok || !Array.isArray(data.data)) {
       nav.innerHTML = '<span style="color:var(--danger);padding:14px 20px;display:block;">加载失败</span>';
       return;
     }
     myCourses = data.data;
+    currentCourseId = null;
     if (!myCourses.length) {
-      nav.innerHTML = '<span style="color:var(--text-secondary);padding:14px 20px;display:block;">暂无授课课程</span>';
+      nav.innerHTML = '<span style="color:var(--text-secondary);padding:14px 20px;display:block;">该学期暂无授课课程</span>';
+      document.getElementById('courseTitle').textContent = '我的授课';
+      document.getElementById('courseSubtitle').textContent = '该学期暂无授课课程';
+      document.getElementById('emptyState').style.display = '';
+      document.getElementById('studentToolbar').style.display = 'none';
+      document.getElementById('studentTableWrap').style.display = 'none';
       return;
     }
     nav.innerHTML = myCourses
@@ -95,6 +120,9 @@
         selectCourse(parseInt(a.dataset.id, 10));
       });
     });
+    document.getElementById('emptyState').style.display = '';
+    document.getElementById('studentToolbar').style.display = 'none';
+    document.getElementById('studentTableWrap').style.display = 'none';
   }
 
   function selectCourse(courseId) {
@@ -121,6 +149,7 @@
     const keyword = document.getElementById('studentKeyword').value.trim();
     const params = new URLSearchParams();
     if (keyword) params.set('keyword', keyword);
+    if (currentSemesterId) params.set('semesterId', currentSemesterId);
     const qs = params.toString();
     const { data } = await api('/api/teachers/' + user.id + '/courses/' + currentCourseId + '/students' + (qs ? '?' + qs : ''));
     if (!data || !data.ok || !Array.isArray(data.data)) {
@@ -150,7 +179,10 @@
     const course = myCourses.find((c) => c.id === currentCourseId);
     if (!course) return;
     try {
-      const res = await fetch(API_BASE + '/api/teachers/' + user.id + '/courses/' + currentCourseId + '/students/export');
+      const params = new URLSearchParams();
+      if (currentSemesterId) params.set('semesterId', currentSemesterId);
+      const qs = params.toString();
+      const res = await fetch(API_BASE + '/api/teachers/' + user.id + '/courses/' + currentCourseId + '/students/export' + (qs ? '?' + qs : ''));
       if (!res.ok) {
         let msg = '导出失败';
         try {
@@ -181,21 +213,6 @@
     }
   }
 
-  document.getElementById('searchStudentBtn').addEventListener('click', loadStudents);
-  document.getElementById('studentKeyword').addEventListener('keydown', (e) => {
-    if (e.key === 'Enter') loadStudents();
-  });
-  document.getElementById('exportBtn').addEventListener('click', exportStudents);
-
-  document.getElementById('logoutBtn').addEventListener('click', (e) => {
-    sessionStorage.removeItem('user');
-    if (navigator.sendBeacon) {
-      navigator.sendBeacon(API_BASE + '/api/auth/logout', '');
-    } else {
-      fetch(API_BASE + '/api/auth/logout', { method: 'POST' }).catch(() => {});
-    }
-  });
-
   function init() {
     user = getStoredUser();
     if (!user) {
@@ -203,7 +220,30 @@
       return;
     }
     renderTeacherInfo();
-    loadMyCourses();
+
+    document.getElementById('searchStudentBtn').addEventListener('click', loadStudents);
+    document.getElementById('studentKeyword').addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') loadStudents();
+    });
+    document.getElementById('exportBtn').addEventListener('click', exportStudents);
+
+    document.getElementById('logoutBtn').addEventListener('click', (e) => {
+      sessionStorage.removeItem('user');
+      if (navigator.sendBeacon) {
+        navigator.sendBeacon(API_BASE + '/api/auth/logout', '');
+      } else {
+        fetch(API_BASE + '/api/auth/logout', { method: 'POST' }).catch(() => {});
+      }
+    });
+
+    document.getElementById('teacherSemesterSelect').addEventListener('change', (e) => {
+      currentSemesterId = e.target.value ? parseInt(e.target.value, 10) : null;
+      loadMyCourses();
+    });
+
+    initSemesterDropdown().then(() => {
+      loadMyCourses();
+    });
   }
 
   init();

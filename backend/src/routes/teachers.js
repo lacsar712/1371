@@ -2,7 +2,7 @@ const express = require('express');
 const { param, query, validationResult } = require('express-validator');
 const { Op } = require('sequelize');
 const router = express.Router();
-const { Teacher, Course, CourseTeacher, Enrollment, Student, sequelize } = require('../models');
+const { Teacher, Course, CourseTeacher, Enrollment, Student, sequelize, resolveSemesterId } = require('../models');
 const logger = require('../logger');
 
 function sendJson(res, status, body) {
@@ -15,12 +15,17 @@ router.get('/:id/courses', param('id').isInt({ min: 1 }).withMessage('无效的�
   if (!errors.isEmpty()) return sendJson(res, 400, { ok: false, message: errors.array()[0].msg });
   const teacherId = parseInt(req.params.id, 10);
   try {
+    const semesterId = await resolveSemesterId(req.query.semesterId);
+    const courseWhere = {};
+    if (semesterId) courseWhere.semesterId = semesterId;
     const rows = await CourseTeacher.findAll({
       where: { teacherId },
-      include: [{ model: Course, as: 'Course', attributes: ['id', 'code', 'name', 'credit', 'capacity'] }],
+      include: [{ model: Course, as: 'Course', attributes: ['id', 'code', 'name', 'credit', 'capacity', 'semesterId'], where: courseWhere }],
       order: [['id', 'ASC']],
     });
+    const enrollWhere = semesterId ? { semesterId } : {};
     const enrollCounts = await Enrollment.findAll({
+      where: enrollWhere,
       attributes: ['courseId', [sequelize.fn('COUNT', sequelize.col('id')), 'enrolled']],
       group: ['courseId'],
       raw: true,
@@ -48,9 +53,11 @@ router.get(
     const courseId = parseInt(req.params.courseId, 10);
     const keyword = (req.query.keyword || '').trim();
     try {
+      const semesterId = await resolveSemesterId(req.query.semesterId);
       const teach = await CourseTeacher.findOne({ where: { teacherId, courseId } });
       if (!teach) return sendJson(res, 403, { ok: false, message: '您无权查看该课程的学生' });
       const where = { courseId };
+      if (semesterId) where.semesterId = semesterId;
       let studentWhere = {};
       if (keyword) {
         studentWhere = {
@@ -89,12 +96,15 @@ router.get(
     const teacherId = parseInt(req.params.id, 10);
     const courseId = parseInt(req.params.courseId, 10);
     try {
+      const semesterId = await resolveSemesterId(req.query.semesterId);
       const teach = await CourseTeacher.findOne({ where: { teacherId, courseId } });
       if (!teach) return sendJson(res, 403, { ok: false, message: '您无权导出该课程的学生' });
       const course = await Course.findByPk(courseId, { attributes: ['id', 'code', 'name'] });
       if (!course) return sendJson(res, 404, { ok: false, message: '课程不存在' });
+      const where = { courseId };
+      if (semesterId) where.semesterId = semesterId;
       const rows = await Enrollment.findAll({
-        where: { courseId },
+        where,
         include: [{ model: Student, as: 'Student', attributes: ['id', 'studentNo', 'name'] }],
         order: [['enrolledAt', 'ASC']],
       });

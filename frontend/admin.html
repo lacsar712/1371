@@ -16,6 +16,10 @@
         <span class="brand-text">选课管理</span>
       </div>
       <nav class="sidebar-nav">
+        <a href="#" data-page="semesters">
+          <span class="nav-icon" aria-hidden="true">📆</span>
+          <span>学期管理</span>
+        </a>
         <a href="#" data-page="organization">
           <span class="nav-icon" aria-hidden="true">🏛️</span>
           <span>组织架构</span>
@@ -44,7 +48,15 @@
           <h1 id="pageTitle">课程管理</h1>
           <p id="pageSubtitle" class="header-subtitle">管理课程信息与容量</p>
         </div>
-        <a href="index.html" class="btn btn-ghost btn-sm" id="logoutBtn" role="button">退出登录</a>
+        <div class="header-actions">
+          <div class="semester-selector">
+            <label for="adminSemesterSelect" class="semester-selector-label">学期</label>
+            <select id="adminSemesterSelect" class="semester-select">
+              <option value="">加载中...</option>
+            </select>
+          </div>
+          <a href="index.html" class="btn btn-ghost btn-sm" id="logoutBtn" role="button">退出登录</a>
+        </div>
       </header>
 
       <!-- 组织架构页面 -->
@@ -73,6 +85,34 @@
               <p style="color:var(--text-secondary);padding:40px;text-align:center;">请在左侧选择一个班级节点</p>
             </div>
           </div>
+        </div>
+      </div>
+
+      <!-- 学期管理页面 -->
+      <div id="page-semesters" class="admin-content" style="display:none;">
+        <section class="content-toolbar">
+          <h2 class="toolbar-title">学期列表</h2>
+          <div class="toolbar-actions">
+            <button type="button" class="btn btn-primary" id="addSemesterBtn">＋ 新增学期</button>
+          </div>
+        </section>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>ID</th>
+                <th>学年</th>
+                <th>学期</th>
+                <th>开始日期</th>
+                <th>结束日期</th>
+                <th>状态</th>
+                <th>操作</th>
+              </tr>
+            </thead>
+            <tbody id="semesterTableBody">
+              <tr><td colspan="7" style="text-align:center;color:var(--text-secondary);">加载中...</td></tr>
+            </tbody>
+          </table>
         </div>
       </div>
 
@@ -228,12 +268,71 @@
     </div>
   </div>
 
+  <!-- 学期编辑弹窗 -->
+  <div id="semesterModalOverlay" class="modal-overlay">
+    <div class="modal" style="max-width:520px;">
+      <h2 id="semesterModalTitle">新增学期</h2>
+      <form id="semesterForm">
+        <input type="hidden" id="semesterEditId" name="id" />
+        <div class="form-group">
+          <label for="academicYear">学年</label>
+          <input type="text" id="academicYear" name="academicYear" required placeholder="如：2025-2026" />
+        </div>
+        <div class="form-group">
+          <label for="semesterNumber">学期序号</label>
+          <select id="semesterNumber" name="semesterNumber" required>
+            <option value="1">第1学期</option>
+            <option value="2">第2学期</option>
+            <option value="3">第3学期</option>
+            <option value="4">第4学期</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label for="startDate">开始日期</label>
+          <input type="date" id="startDate" name="startDate" required />
+        </div>
+        <div class="form-group">
+          <label for="endDate">结束日期</label>
+          <input type="date" id="endDate" name="endDate" required />
+        </div>
+        <div class="form-group">
+          <label style="display:flex;align-items:center;gap:10px;cursor:pointer;">
+            <input type="checkbox" id="isCurrent" name="isCurrent" style="width:18px;height:18px;accent-color:var(--accent-start);" />
+            <span>设为当前学期</span>
+          </label>
+        </div>
+        <div class="modal-actions">
+          <button type="button" class="btn btn-ghost" id="semesterModalCancel">取消</button>
+          <button type="submit" class="btn btn-primary">保存</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- 切换当前学期 - 影响预览弹窗 -->
+  <div id="semesterImpactOverlay" class="modal-overlay confirm-modal">
+    <div class="modal modal-confirm" style="max-width:540px;">
+      <h2 class="confirm-title">切换当前学期</h2>
+      <div id="semesterImpactContent" class="confirm-message"></div>
+      <div class="modal-actions confirm-actions">
+        <button type="button" class="btn btn-ghost" id="semesterImpactCancel">取消</button>
+        <button type="button" class="btn btn-primary" id="semesterImpactConfirm">确认切换</button>
+      </div>
+    </div>
+  </div>
+
   <!-- 课程编辑弹窗 -->
   <div id="courseModalOverlay" class="modal-overlay">
     <div class="modal" style="max-width:520px;">
       <h2 id="courseModalTitle">新增课程</h2>
       <form id="courseForm">
         <input type="hidden" id="courseId" name="id" />
+        <div class="form-group">
+          <label for="courseSemesterId">所属学期</label>
+          <select id="courseSemesterId" name="semesterId" required>
+            <option value="">加载中...</option>
+          </select>
+        </div>
         <div class="form-group">
           <label for="code">课程代码</label>
           <input type="text" id="code" name="code" required />

@@ -26,6 +26,16 @@ const Major = require('./Major')(sequelize);
 const ClassInfo = require('./ClassInfo')(sequelize);
 const Classroom = require('./Classroom')(sequelize);
 const Schedule = require('./Schedule')(sequelize);
+const Semester = require('./Semester')(sequelize);
+
+Semester.hasMany(Course, { foreignKey: 'semesterId', as: 'courses' });
+Course.belongsTo(Semester, { foreignKey: 'semesterId', as: 'semester' });
+
+Semester.hasMany(Enrollment, { foreignKey: 'semesterId', as: 'enrollments' });
+Enrollment.belongsTo(Semester, { foreignKey: 'semesterId', as: 'semester' });
+
+Semester.hasMany(Schedule, { foreignKey: 'semesterId', as: 'schedules' });
+Schedule.belongsTo(Semester, { foreignKey: 'semesterId', as: 'semester' });
 
 Student.hasMany(Enrollment, { foreignKey: 'studentId' });
 Enrollment.belongsTo(Student, { foreignKey: 'studentId' });
@@ -51,6 +61,19 @@ Schedule.belongsTo(Course, { foreignKey: 'courseId', as: 'course' });
 Classroom.hasMany(Schedule, { foreignKey: 'classroomId', as: 'schedules' });
 Schedule.belongsTo(Classroom, { foreignKey: 'classroomId', as: 'classroom' });
 
+async function getCurrentSemester() {
+  return await Semester.findOne({ where: { isCurrent: true } });
+}
+
+async function resolveSemesterId(semesterIdParam) {
+  if (semesterIdParam) {
+    const id = parseInt(semesterIdParam, 10);
+    if (!Number.isNaN(id) && id > 0) return id;
+  }
+  const current = await getCurrentSemester();
+  return current ? current.id : null;
+}
+
 module.exports = {
   sequelize,
   Admin,
@@ -64,4 +87,7 @@ module.exports = {
   ClassInfo,
   Classroom,
   Schedule,
+  Semester,
+  getCurrentSemester,
+  resolveSemesterId,
 };

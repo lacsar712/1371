@@ -1,7 +1,7 @@
 const express = require('express');
 const { body, param, validationResult } = require('express-validator');
 const router = express.Router();
-const { Course, Enrollment, Schedule, Classroom } = require('../models');
+const { Course, Enrollment, Schedule, Classroom, resolveSemesterId, Semester } = require('../models');
 const logger = require('../logger');
 
 router.get('/:id/courses', param('id').isInt({ min: 1 }).withMessage('无效的学生 ID'), async (req, res) => {
@@ -9,8 +9,11 @@ router.get('/:id/courses', param('id').isInt({ min: 1 }).withMessage('无效的�
   if (!errors.isEmpty()) return res.status(400).json({ ok: false, message: errors.array()[0].msg });
   const studentId = parseInt(req.params.id, 10);
   try {
+    const semesterId = await resolveSemesterId(req.query.semesterId);
+    const where = { studentId };
+    if (semesterId) where.semesterId = semesterId;
     const rows = await Enrollment.findAll({
-      where: { studentId },
+      where,
       include: [{
         model: Course,
         as: 'Course',
@@ -52,13 +55,14 @@ router.post('/:id/enroll', enrollValidators, async (req, res) => {
   const studentId = parseInt(req.params.id, 10);
   const courseId = parseInt(req.body.courseId, 10);
   try {
-    const course = await Course.findByPk(courseId, { attributes: ['id', 'capacity'] });
+    const course = await Course.findByPk(courseId, { attributes: ['id', 'capacity', 'semesterId'] });
     if (!course) return res.status(404).json({ ok: false, message: '课程不存在' });
-    const enrolled = await Enrollment.count({ where: { courseId } });
+    const semesterId = course.semesterId;
+    const enrolled = await Enrollment.count({ where: { courseId, semesterId } });
     if (enrolled >= course.capacity) return res.status(400).json({ ok: false, message: '课程已满' });
-    const exists = await Enrollment.findOne({ where: { studentId, courseId } });
+    const exists = await Enrollment.findOne({ where: { studentId, courseId, semesterId } });
     if (exists) return res.status(400).json({ ok: false, message: '已选过该课程' });
-    await Enrollment.create({ studentId, courseId });
+    await Enrollment.create({ studentId, courseId, semesterId });
     return res.set('Content-Type', 'application/json; charset=utf-8').json({ ok: true, message: '选课成功' });
   } catch (e) {
     if (e.name === 'SequelizeUniqueConstraintError') return res.status(400).json({ ok: false, message: '已选过该课程' });
@@ -73,7 +77,10 @@ router.delete('/:id/enroll/:courseId', param('id').isInt({ min: 1 }), param('cou
   const studentId = parseInt(req.params.id, 10);
   const courseId = parseInt(req.params.courseId, 10);
   try {
-    const n = await Enrollment.destroy({ where: { studentId, courseId } });
+    const semesterId = await resolveSemesterId(req.query.semesterId);
+    const where = { studentId, courseId };
+    if (semesterId) where.semesterId = semesterId;
+    const n = await Enrollment.destroy({ where });
     if (n === 0) return res.status(404).json({ ok: false, message: '未找到选课记录' });
     return res.set('Content-Type', 'application/json; charset=utf-8').json({ ok: true, message: '退课成功' });
   } catch (e) {

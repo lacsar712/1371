@@ -30,7 +30,15 @@
           <h1 id="courseTitle">我的授课</h1>
           <p id="courseSubtitle" class="header-subtitle">请从左侧选择课程查看选课学生</p>
         </div>
-        <a href="index.html" class="btn btn-ghost btn-sm" id="logoutBtn" role="button">退出登录</a>
+        <div class="header-actions">
+          <div class="semester-selector">
+            <label for="teacherSemesterSelect" class="semester-selector-label">学期</label>
+            <select id="teacherSemesterSelect" class="semester-select">
+              <option value="">加载中...</option>
+            </select>
+          </div>
+          <a href="index.html" class="btn btn-ghost btn-sm" id="logoutBtn" role="button">退出登录</a>
+        </div>
       </header>
       <div class="admin-content">
         <section class="content-toolbar" id="studentToolbar" style="display:none;">

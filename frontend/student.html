@@ -13,7 +13,13 @@
       <h1>课程中心</h1>
       <div id="studentBreadcrumb" class="student-breadcrumb"></div>
     </div>
-    <div>
+    <div class="header-actions">
+      <div class="semester-selector">
+        <label for="studentSemesterSelect" class="semester-selector-label">学期</label>
+        <select id="studentSemesterSelect" class="semester-select">
+          <option value="">加载中...</option>
+        </select>
+      </div>
       <span id="userName" style="margin-right:12px;color:var(--text-secondary);"></span>
       <a href="index.html" class="btn btn-ghost" id="logoutBtn" role="button">退出</a>
     </div>

@@ -2,12 +2,16 @@ const express = require('express');
 const { body, param, validationResult } = require('express-validator');
 const { Op } = require('sequelize');
 const router = express.Router();
-const { Schedule, Course, Classroom } = require('../models');
+const { Schedule, Course, Classroom, resolveSemesterId } = require('../models');
 const logger = require('../logger');
 
 router.get('/', async (req, res) => {
   try {
+    const semesterId = await resolveSemesterId(req.query.semesterId);
+    const where = {};
+    if (semesterId) where.semesterId = semesterId;
     const list = await Schedule.findAll({
+      where,
       order: [['id']],
       include: [
         { model: Course, as: 'course', attributes: ['id', 'code', 'name', 'capacity'] },
@@ -111,6 +115,7 @@ router.post('/', scheduleValidators, async (req, res) => {
       dayOfWeek: Number(dayOfWeek),
       startPeriod: Number(startPeriod),
       endPeriod: Number(endPeriod),
+      semesterId: course.semesterId,
     });
     const result = await Schedule.findByPk(row.id, {
       include: [

@@ -1,18 +1,20 @@
 const express = require('express');
 const { Op } = require('sequelize');
 const router = express.Router();
-const { Course, Enrollment, Schedule, Classroom, sequelize } = require('../models');
+const { Course, Enrollment, Schedule, Classroom, sequelize, resolveSemesterId } = require('../models');
 const logger = require('../logger');
 
 router.get('/', async (req, res) => {
   const keyword = (req.query.keyword || '').trim();
   try {
+    const semesterId = await resolveSemesterId(req.query.semesterId);
     const where = keyword
       ? { [Op.or]: [
           { name: { [Op.like]: `%${keyword}%` } },
           { code: { [Op.like]: `%${keyword}%` } },
         ] }
       : {};
+    if (semesterId) where.semesterId = semesterId;
     const list = await Course.findAll({
       where,
       order: [['id']],
@@ -25,6 +27,7 @@ router.get('/', async (req, res) => {
       }],
     });
     const enrollCounts = await Enrollment.findAll({
+      where: semesterId ? { semesterId } : {},
       attributes: ['courseId', [sequelize.fn('COUNT', sequelize.col('id')), 'enrolled']],
       group: ['courseId'],
       raw: true,

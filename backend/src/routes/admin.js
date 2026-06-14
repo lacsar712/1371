@@ -2,7 +2,7 @@ const express = require('express');
 const { body, param, validationResult } = require('express-validator');
 const { Op } = require('sequelize');
 const router = express.Router();
-const { Course, Enrollment, Student, Teacher, CourseTeacher } = require('../models');
+const { Course, Enrollment, Student, Teacher, CourseTeacher, resolveSemesterId, Semester } = require('../models');
 const { hashPassword } = require('../db');
 const logger = require('../logger');
 
@@ -214,12 +214,18 @@ router.delete('/teachers/:id', param('id').isInt({ min: 1 }), async (req, res) =
 router.get('/courses', async (req, res) => {
   const { sequelize } = require('../models');
   try {
+    const semesterId = await resolveSemesterId(req.query.semesterId);
+    const where = {};
+    if (semesterId) where.semesterId = semesterId;
     const list = await Course.findAll({
+      where,
       order: [['id']],
-      attributes: ['id', 'code', 'name', 'credit', 'capacity'],
+      attributes: ['id', 'code', 'name', 'credit', 'capacity', 'semesterId'],
       include: [{ model: Teacher, as: 'teachers', attributes: ['id', 'teacherNo', 'name', 'title', 'college'], through: { attributes: [] } }],
     });
+    const enrollWhere = semesterId ? { semesterId } : {};
     const enrollCounts = await Enrollment.findAll({
+      where: enrollWhere,
       attributes: ['courseId', [sequelize.fn('COUNT', sequelize.col('id')), 'enrolled']],
       group: ['courseId'],
       raw: true,
@@ -244,18 +250,19 @@ const courseValidators = [
   body('name').trim().notEmpty().withMessage('课程名称不能为空'),
   body('credit').isInt({ min: 0 }).withMessage('学分必须为非负整数'),
   body('capacity').isInt({ min: 0 }).withMessage('容量必须为非负整数'),
+  body('semesterId').isInt({ min: 1 }).withMessage('请选择学期'),
   body('teacherIds').optional().isArray({ min: 0 }).withMessage('教师列表格式错误'),
 ];
 
 router.post('/courses', courseValidators, async (req, res) => {
   const errors = validationResult(req);
   if (!errors.isEmpty()) return res.status(400).json({ ok: false, message: errors.array()[0].msg });
-  const { code, name, credit, capacity, teacherIds } = req.body;
+  const { code, name, credit, capacity, semesterId, teacherIds } = req.body;
   const t = require('../models').sequelize.transaction;
   try {
     const result = await require('../models').sequelize.transaction(async (transaction) => {
       const row = await Course.create(
-        { code: code.trim(), name: name.trim(), credit: Number(credit), capacity: Number(capacity) },
+        { code: code.trim(), name: name.trim(), credit: Number(credit), capacity: Number(capacity), semesterId: Number(semesterId) },
         { transaction }
       );
       if (Array.isArray(teacherIds) && teacherIds.length > 0) {
@@ -282,14 +289,14 @@ router.put('/courses/:id', param('id').isInt({ min: 1 }), courseValidators, asyn
   const errors = validationResult(req);
   if (!errors.isEmpty()) return res.status(400).json({ ok: false, message: errors.array()[0].msg });
   const id = parseInt(req.params.id, 10);
-  const { code, name, credit, capacity, teacherIds } = req.body;
+  const { code, name, credit, capacity, semesterId, teacherIds } = req.body;
   const cap = Number(capacity);
   try {
     const enrolled = await Enrollment.count({ where: { courseId: id } });
     if (enrolled > cap) return res.status(400).json({ ok: false, message: '容量不能小于已选人数' });
     await require('../models').sequelize.transaction(async (transaction) => {
       const [n] = await Course.update(
-        { code: code.trim(), name: name.trim(), credit: Number(credit), capacity: cap },
+        { code: code.trim(), name: name.trim(), credit: Number(credit), capacity: cap, semesterId: Number(semesterId) },
         { where: { id }, transaction }
       );
       if (n === 0) throw new Error('NOT_FOUND');

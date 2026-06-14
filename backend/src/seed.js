@@ -1,6 +1,6 @@
 const crypto = require('crypto');
 const logger = require('./logger');
-const { Admin, Student, Course, Enrollment, Teacher, CourseTeacher, College, Major, ClassInfo, Classroom, Schedule } = require('./models');
+const { Admin, Student, Course, Enrollment, Teacher, CourseTeacher, College, Major, ClassInfo, Classroom, Schedule, Semester, sequelize } = require('./models');
 
 function hashPassword(password) {
   return crypto.createHash('sha256').update(password, 'utf8').digest('hex');
@@ -93,6 +93,24 @@ async function ensureTestAccounts() {
 async function seed() {
   await ensureTestAccounts();
 
+  const semesterCount = await Semester.count();
+  let defaultSemester;
+  if (semesterCount === 0) {
+    defaultSemester = await Semester.create({
+      academicYear: '2025-2026',
+      semesterNumber: 2,
+      startDate: '2026-02-16',
+      endDate: '2026-07-05',
+      isCurrent: true,
+    });
+    logger.info('Default semester seeded');
+  } else {
+    defaultSemester = await Semester.findOne({ where: { isCurrent: true } });
+    if (!defaultSemester) {
+      defaultSemester = await Semester.findOne({ order: [['id', 'DESC']] });
+    }
+  }
+
   const classroomCount = await Classroom.count();
   if (classroomCount === 0) {
     await Classroom.bulkCreate([
@@ -111,17 +129,23 @@ async function seed() {
     logger.info('Seed already applied, skip');
     return;
   }
+
+  if (!defaultSemester) {
+    logger.warn('No semester available, skip course seeding');
+    return;
+  }
+
   const courses = await Course.bulkCreate([
-    { code: 'CS101', name: '数据结构', credit: 4, capacity: 60 },
-    { code: 'CS102', name: '计算机网络', credit: 3, capacity: 50 },
-    { code: 'CS103', name: '操作系统', credit: 4, capacity: 55 },
-    { code: 'MATH201', name: '高等数学', credit: 5, capacity: 80 },
-    { code: 'ENG101', name: '大学英语', credit: 2, capacity: 100 },
+    { code: 'CS101', name: '数据结构', credit: 4, capacity: 60, semesterId: defaultSemester.id },
+    { code: 'CS102', name: '计算机网络', credit: 3, capacity: 50, semesterId: defaultSemester.id },
+    { code: 'CS103', name: '操作系统', credit: 4, capacity: 55, semesterId: defaultSemester.id },
+    { code: 'MATH201', name: '高等数学', credit: 5, capacity: 80, semesterId: defaultSemester.id },
+    { code: 'ENG101', name: '大学英语', credit: 2, capacity: 100, semesterId: defaultSemester.id },
   ]);
   await Enrollment.bulkCreate([
-    { studentId: 1, courseId: 1 },
-    { studentId: 1, courseId: 2 },
-    { studentId: 2, courseId: 1 },
+    { studentId: 1, courseId: 1, semesterId: defaultSemester.id },
+    { studentId: 1, courseId: 2, semesterId: defaultSemester.id },
+    { studentId: 2, courseId: 1, semesterId: defaultSemester.id },
   ]);
   const teachers = await Teacher.findAll();
   const teacherMap = Object.fromEntries(teachers.map((t) => [t.teacherNo, t.id]));

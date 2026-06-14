@@ -3,6 +3,8 @@
   let user = null;
   let allCourses = [];
   let myCourseIds = new Set();
+  let allSemesters = [];
+  let currentSemesterId = null;
 
   function getStoredUser() {
     try {
@@ -132,7 +134,11 @@
   }
 
   async function loadCourses(keyword = '') {
-    const path = keyword ? '/api/courses?keyword=' + encodeURIComponent(keyword) : '/api/courses';
+    const params = new URLSearchParams();
+    if (keyword) params.set('keyword', keyword);
+    if (currentSemesterId) params.set('semesterId', currentSemesterId);
+    const qs = params.toString();
+    const path = '/api/courses' + (qs ? '?' + qs : '');
     const { data } = await api(path);
     if (data && data.ok && Array.isArray(data.data)) {
       allCourses = data.data;
@@ -144,7 +150,8 @@
   }
 
   async function loadMyCourses() {
-    const { data } = await api('/api/students/' + user.id + '/courses');
+    const qs = currentSemesterId ? '?semesterId=' + currentSemesterId : '';
+    const { data } = await api('/api/students/' + user.id + '/courses' + qs);
     if (data && data.ok && Array.isArray(data.data)) {
       myCourseIds = new Set(data.data.map((c) => c.id));
       renderMyCourses(data.data);
@@ -171,7 +178,8 @@
   async function drop(courseId) {
     const ok = await showConfirm('确定退选该课程？');
     if (!ok) return;
-    const { data } = await api('/api/students/' + user.id + '/enroll/' + courseId, {
+    const qs = currentSemesterId ? '?semesterId=' + currentSemesterId : '';
+    const { data } = await api('/api/students/' + user.id + '/enroll/' + courseId + qs, {
       method: 'DELETE',
     });
     if (data && data.ok) {
@@ -201,6 +209,22 @@
     }).join('');
   }
 
+  async function initSemesterDropdown() {
+    const { data } = await api('/api/semesters');
+    if (data && data.ok && Array.isArray(data.data)) {
+      allSemesters = data.data;
+      const select = document.getElementById('studentSemesterSelect');
+      select.innerHTML = allSemesters.map((s) =>
+        `<option value="${s.id}">${escapeHtml(s.academicYear)} 第${s.semesterNumber}学期${s.isCurrent ? ' ★' : ''}</option>`
+      ).join('');
+      const current = allSemesters.find((s) => s.isCurrent);
+      if (current) {
+        select.value = current.id;
+        currentSemesterId = current.id;
+      }
+    }
+  }
+
   function init() {
     user = getStoredUser();
     if (!user) {
@@ -217,7 +241,6 @@
       } else {
         fetch(API_BASE + '/api/auth/logout', { method: 'POST' }).catch(() => {});
       }
-      // 不 preventDefault，让 <a href> 原生跳转，Chrome 下更可靠
     });
 
     document.getElementById('searchBtn').addEventListener('click', () => {
@@ -227,7 +250,15 @@
       if (e.key === 'Enter') loadCourses(e.target.value.trim());
     });
 
-    Promise.all([loadCourses(), loadMyCourses()]);
+    document.getElementById('studentSemesterSelect').addEventListener('change', (e) => {
+      currentSemesterId = e.target.value ? parseInt(e.target.value, 10) : null;
+      loadCourses(document.getElementById('keyword').value.trim());
+      loadMyCourses();
+    });
+
+    initSemesterDropdown().then(() => {
+      Promise.all([loadCourses(), loadMyCourses()]);
+    });
   }
 
   init();

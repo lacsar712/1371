@@ -5,6 +5,8 @@
   let allTeachers = [];
   let allClassrooms = [];
   let allSchedules = [];
+  let allSemesters = [];
+  let currentSemesterId = null;
   let currentPage = 'courses';
 
   function getStoredUser() {
@@ -46,6 +48,7 @@
     document.querySelectorAll('.sidebar-nav a').forEach((a) => {
       a.classList.toggle('active', a.dataset.page === page);
     });
+    document.getElementById('page-semesters').style.display = page === 'semesters' ? '' : 'none';
     document.getElementById('page-organization').style.display = page === 'organization' ? '' : 'none';
     document.getElementById('page-courses').style.display = page === 'courses' ? '' : 'none';
     document.getElementById('page-teachers').style.display = page === 'teachers' ? '' : 'none';
@@ -53,7 +56,11 @@
     document.getElementById('page-scheduling').style.display = page === 'scheduling' ? '' : 'none';
     const title = document.getElementById('pageTitle');
     const subtitle = document.getElementById('pageSubtitle');
-    if (page === 'organization') {
+    if (page === 'semesters') {
+      title.textContent = '学期管理';
+      subtitle.textContent = '管理学年学期、设置当前学期';
+      loadSemesters();
+    } else if (page === 'organization') {
       title.textContent = '组织架构';
       subtitle.textContent = '管理学院、专业、班级与学生归属';
       loadOrgTree();
@@ -81,7 +88,8 @@
   // ========== 课程管理 ==========
   async function loadCourses() {
     const tbody = document.getElementById('courseTableBody');
-    const { data } = await api('/api/admin/courses');
+    const qs = currentSemesterId ? '?semesterId=' + currentSemesterId : '';
+    const { data } = await api('/api/admin/courses' + qs);
     if (!data || !data.ok || !Array.isArray(data.data)) {
       tbody.innerHTML =
         '<tr><td colspan="8" style="text-align:center;color:var(--danger);">加载失败</td></tr>';
@@ -161,6 +169,9 @@
     document.getElementById('name').value = '';
     document.getElementById('credit').value = '';
     document.getElementById('capacity').value = '';
+    await populateCourseSemesterSelect();
+    const semSelect = document.getElementById('courseSemesterId');
+    if (currentSemesterId) semSelect.value = currentSemesterId;
     await loadTeachersForModal();
     renderTeacherCheckboxes([]);
     courseModalTitle.textContent = '新增课程';
@@ -176,10 +187,26 @@
     document.getElementById('name').value = course.name;
     document.getElementById('credit').value = course.credit;
     document.getElementById('capacity').value = course.capacity;
+    await populateCourseSemesterSelect();
+    const semSelect = document.getElementById('courseSemesterId');
+    if (course.semesterId) semSelect.value = course.semesterId;
     await loadTeachersForModal();
     renderTeacherCheckboxes((course.teachers || []).map((t) => t.id));
     courseModalTitle.textContent = '编辑课程';
     courseModal.classList.add('modal-editing', 'show');
+  }
+
+  async function populateCourseSemesterSelect() {
+    const select = document.getElementById('courseSemesterId');
+    if (!allSemesters.length) {
+      const { data } = await api('/api/semesters');
+      if (data && data.ok && Array.isArray(data.data)) {
+        allSemesters = data.data;
+      }
+    }
+    select.innerHTML = allSemesters.map((s) =>
+      `<option value="${s.id}">${escapeHtml(s.academicYear)} 第${s.semesterNumber}学期${s.isCurrent ? ' (当前)' : ''}</option>`
+    ).join('');
   }
 
   function closeCourseModal() {
@@ -200,17 +227,18 @@
   courseForm.addEventListener('submit', async (e) => {
     e.preventDefault();
     const id = document.getElementById('courseId').value.trim();
+    const semesterId = parseInt(document.getElementById('courseSemesterId').value, 10);
     const code = document.getElementById('code').value.trim();
     const name = document.getElementById('name').value.trim();
     const credit = parseInt(document.getElementById('credit').value, 10);
     const capacity = parseInt(document.getElementById('capacity').value, 10);
     const teacherCheckboxes = document.querySelectorAll('input[name="teacherIds"]:checked');
     const teacherIds = Array.from(teacherCheckboxes).map((cb) => parseInt(cb.value, 10));
-    if (!code || !name || Number.isNaN(credit) || credit < 0 || Number.isNaN(capacity) || capacity < 0) {
+    if (!semesterId || !code || !name || Number.isNaN(credit) || credit < 0 || Number.isNaN(capacity) || capacity < 0) {
       showToast('请填写完整且有效的字段', 'error');
       return;
     }
-    const payload = { code, name, credit, capacity, teacherIds };
+    const payload = { code, name, credit, capacity, semesterId, teacherIds };
     if (id) {
       const { data } = await api('/api/admin/courses/' + id, {
         method: 'PUT',
@@ -1035,10 +1063,11 @@
   const DAY_NAMES = ['', '周一', '周二', '周三', '周四', '周五', '周六', '周日'];
 
   async function loadSchedulingData() {
+    const semQS = currentSemesterId ? '?semesterId=' + currentSemesterId : '';
     const [coursesRes, classroomsRes, schedulesRes] = await Promise.all([
-      api('/api/admin/courses'),
+      api('/api/admin/courses' + semQS),
       api('/api/admin/classrooms'),
-      api('/api/admin/schedules'),
+      api('/api/admin/schedules' + semQS),
     ]);
     allCourses = (coursesRes.data && coursesRes.data.ok && coursesRes.data.data) || [];
     allClassrooms = (classroomsRes.data && classroomsRes.data.ok && classroomsRes.data.data) || [];
@@ -1290,6 +1319,222 @@
     renderScheduleGrid();
   });
 
+  // ========== 学期管理 ==========
+  let allSemestersList = [];
+  let pendingSetCurrentId = null;
+
+  async function loadSemesters() {
+    const tbody = document.getElementById('semesterTableBody');
+    const { data } = await api('/api/semesters');
+    if (!data || !data.ok || !Array.isArray(data.data)) {
+      tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;color:var(--danger);">加载失败</td></tr>';
+      return;
+    }
+    allSemestersList = data.data;
+    if (!allSemestersList.length) {
+      tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;color:var(--text-secondary);">暂无学期，点击右上角新增</td></tr>';
+      return;
+    }
+    tbody.innerHTML = allSemestersList.map((s) => `
+      <tr>
+        <td>${s.id}</td>
+        <td>${escapeHtml(s.academicYear)}</td>
+        <td>第${s.semesterNumber}学期</td>
+        <td>${s.startDate}</td>
+        <td>${s.endDate}</td>
+        <td>${s.isCurrent ? '<span style="color:var(--success);font-weight:600;">✓ 当前学期</span>' : '<span style="color:var(--text-secondary);">—</span>'}</td>
+        <td>
+          <button type="button" class="btn btn-ghost btn-sm edit-semester-btn" data-id="${s.id}">编辑</button>
+          ${s.isCurrent ? '' : `<button type="button" class="btn btn-ghost btn-sm set-current-semester-btn" data-id="${s.id}" style="color:var(--accent-start);">设为当前</button>`}
+          ${s.isCurrent ? '' : `<button type="button" class="btn btn-danger btn-sm delete-semester-btn" data-id="${s.id}">删除</button>`}
+        </td>
+      </tr>`
+    ).join('');
+
+    tbody.querySelectorAll('.edit-semester-btn').forEach((btn) => {
+      btn.addEventListener('click', () => openSemesterEdit(parseInt(btn.dataset.id, 10)));
+    });
+    tbody.querySelectorAll('.set-current-semester-btn').forEach((btn) => {
+      btn.addEventListener('click', () => confirmSetCurrentSemester(parseInt(btn.dataset.id, 10)));
+    });
+    tbody.querySelectorAll('.delete-semester-btn').forEach((btn) => {
+      btn.addEventListener('click', () => deleteSemester(parseInt(btn.dataset.id, 10)));
+    });
+  }
+
+  const semesterModal = document.getElementById('semesterModalOverlay');
+  const semesterForm = document.getElementById('semesterForm');
+  const semesterModalTitle = document.getElementById('semesterModalTitle');
+
+  function openSemesterAdd() {
+    document.getElementById('semesterEditId').value = '';
+    document.getElementById('academicYear').value = '';
+    document.getElementById('semesterNumber').value = '1';
+    document.getElementById('startDate').value = '';
+    document.getElementById('endDate').value = '';
+    document.getElementById('isCurrent').checked = false;
+    semesterModalTitle.textContent = '新增学期';
+    semesterModal.classList.remove('modal-editing');
+    semesterModal.classList.add('show');
+  }
+
+  function openSemesterEdit(id) {
+    const s = allSemestersList.find((x) => x.id === id);
+    if (!s) return;
+    document.getElementById('semesterEditId').value = id;
+    document.getElementById('academicYear').value = s.academicYear;
+    document.getElementById('semesterNumber').value = s.semesterNumber;
+    document.getElementById('startDate').value = s.startDate;
+    document.getElementById('endDate').value = s.endDate;
+    document.getElementById('isCurrent').checked = s.isCurrent;
+    semesterModalTitle.textContent = '编辑学期';
+    semesterModal.classList.add('modal-editing', 'show');
+  }
+
+  function closeSemesterModal() {
+    semesterModal.classList.remove('show');
+  }
+
+  async function deleteSemester(id) {
+    if (!confirm('确定删除该学期？')) return;
+    const { data } = await api('/api/semesters/' + id, { method: 'DELETE' });
+    if (data && data.ok) {
+      showToast('已删除', 'success');
+      await loadSemesters();
+      await refreshSemesterDropdown();
+    } else {
+      showToast((data && data.message) || '删除失败', 'error');
+    }
+  }
+
+  async function confirmSetCurrentSemester(id) {
+    pendingSetCurrentId = id;
+    const { data } = await api('/api/semesters/' + id + '/impact');
+    if (!data || !data.ok) {
+      showToast('获取影响范围失败', 'error');
+      return;
+    }
+    const impact = data.data;
+    const content = document.getElementById('semesterImpactContent');
+    if (impact.isCurrentTarget) {
+      content.innerHTML = '该学期已经是当前学期，无需切换。';
+      document.getElementById('semesterImpactConfirm').style.display = 'none';
+    } else {
+      content.innerHTML = `
+        <div style="margin-bottom:12px;">将 <strong>${escapeHtml(impact.targetSemesterLabel)}</strong> 设为当前学期：</div>
+        <div style="background:rgba(255,255,255,0.04);border-radius:10px;padding:16px;margin-bottom:12px;">
+          <div style="color:var(--danger);margin-bottom:8px;">⚠ 从默认视图消失的数据：</div>
+          <div style="padding-left:12px;">
+            <div>${impact.coursesLeavingDefault} 门课程</div>
+            <div>${impact.enrollmentsLeavingDefault} 条选课记录</div>
+          </div>
+        </div>
+        <div style="background:rgba(255,255,255,0.04);border-radius:10px;padding:16px;">
+          <div style="color:var(--success);margin-bottom:8px;">✓ 进入默认视图的数据：</div>
+          <div style="padding-left:12px;">
+            <div>${impact.coursesEnteringDefault} 门课程</div>
+            <div>${impact.enrollmentsEnteringDefault} 条选课记录</div>
+          </div>
+        </div>
+      `;
+      document.getElementById('semesterImpactConfirm').style.display = '';
+    }
+    document.getElementById('semesterImpactOverlay').classList.add('show');
+  }
+
+  semesterForm.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const id = document.getElementById('semesterEditId').value.trim();
+    const academicYear = document.getElementById('academicYear').value.trim();
+    const semesterNumber = parseInt(document.getElementById('semesterNumber').value, 10);
+    const startDate = document.getElementById('startDate').value;
+    const endDate = document.getElementById('endDate').value;
+    const isCurrent = document.getElementById('isCurrent').checked;
+    if (!academicYear || !startDate || !endDate) {
+      showToast('请填写完整字段', 'error');
+      return;
+    }
+    const payload = { academicYear, semesterNumber, startDate, endDate, isCurrent };
+    if (id) {
+      const { data } = await api('/api/semesters/' + id, {
+        method: 'PUT',
+        body: JSON.stringify(payload),
+      });
+      if (data && data.ok) {
+        showToast('保存成功', 'success');
+        closeSemesterModal();
+        await loadSemesters();
+        await refreshSemesterDropdown();
+      } else {
+        showToast((data && data.message) || '保存失败', 'error');
+      }
+    } else {
+      const { data } = await api('/api/semesters', {
+        method: 'POST',
+        body: JSON.stringify(payload),
+      });
+      if (data && data.ok) {
+        showToast('新增成功', 'success');
+        closeSemesterModal();
+        await loadSemesters();
+        await refreshSemesterDropdown();
+      } else {
+        showToast((data && data.message) || '新增失败', 'error');
+      }
+    }
+  });
+
+  document.getElementById('semesterModalCancel').addEventListener('click', closeSemesterModal);
+  semesterModal.addEventListener('click', (e) => {
+    if (e.target === semesterModal) closeSemesterModal();
+  });
+  document.getElementById('addSemesterBtn').addEventListener('click', openSemesterAdd);
+
+  document.getElementById('semesterImpactCancel').addEventListener('click', () => {
+    document.getElementById('semesterImpactOverlay').classList.remove('show');
+    pendingSetCurrentId = null;
+  });
+  document.getElementById('semesterImpactOverlay').addEventListener('click', (e) => {
+    if (e.target === document.getElementById('semesterImpactOverlay')) {
+      document.getElementById('semesterImpactOverlay').classList.remove('show');
+      pendingSetCurrentId = null;
+    }
+  });
+  document.getElementById('semesterImpactConfirm').addEventListener('click', async () => {
+    if (!pendingSetCurrentId) return;
+    const { data } = await api('/api/semesters/' + pendingSetCurrentId + '/set-current', { method: 'POST' });
+    if (data && data.ok) {
+      showToast('已切换当前学期', 'success');
+      document.getElementById('semesterImpactOverlay').classList.remove('show');
+      await loadSemesters();
+      await refreshSemesterDropdown();
+      currentSemesterId = pendingSetCurrentId;
+      document.getElementById('adminSemesterSelect').value = currentSemesterId;
+    } else {
+      showToast((data && data.message) || '切换失败', 'error');
+    }
+    pendingSetCurrentId = null;
+  });
+
+  async function refreshSemesterDropdown() {
+    const { data } = await api('/api/semesters');
+    if (data && data.ok && Array.isArray(data.data)) {
+      allSemesters = data.data;
+      const select = document.getElementById('adminSemesterSelect');
+      const prevVal = select.value;
+      select.innerHTML = allSemesters.map((s) =>
+        `<option value="${s.id}">${escapeHtml(s.academicYear)} 第${s.semesterNumber}学期${s.isCurrent ? ' ★' : ''}</option>`
+      ).join('');
+      const current = allSemesters.find((s) => s.isCurrent);
+      if (prevVal && allSemesters.some((s) => s.id === parseInt(prevVal, 10))) {
+        select.value = prevVal;
+      } else if (current) {
+        select.value = current.id;
+        currentSemesterId = current.id;
+      }
+    }
+  }
+
   // ========== 导航绑定 ==========
   document.querySelectorAll('.sidebar-nav a').forEach((a) => {
     a.addEventListener('click', (e) => {
@@ -1313,7 +1558,15 @@
       window.location.href = 'index.html';
       return;
     }
-    switchPage('organization');
+    refreshSemesterDropdown().then(() => {
+      const select = document.getElementById('adminSemesterSelect');
+      if (select.value) currentSemesterId = parseInt(select.value, 10);
+    });
+    document.getElementById('adminSemesterSelect').addEventListener('change', (e) => {
+      currentSemesterId = e.target.value ? parseInt(e.target.value, 10) : null;
+      switchPage(currentPage);
+    });
+    switchPage('courses');
   }
 
   init();

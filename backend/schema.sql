@@ -17,27 +17,43 @@ CREATE TABLE IF NOT EXISTS student (
   created_at TEXT DEFAULT (datetime('now', 'localtime'))
 );
 
+CREATE TABLE IF NOT EXISTS semester (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  academic_year TEXT NOT NULL,
+  semester_number INTEGER NOT NULL,
+  start_date TEXT NOT NULL,
+  end_date TEXT NOT NULL,
+  is_current INTEGER NOT NULL DEFAULT 0,
+  UNIQUE(academic_year, semester_number)
+);
+
 CREATE TABLE IF NOT EXISTS course (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
-  code TEXT NOT NULL UNIQUE,
+  code TEXT NOT NULL,
   name TEXT NOT NULL,
   credit INTEGER NOT NULL DEFAULT 0,
   capacity INTEGER NOT NULL DEFAULT 0,
-  created_at TEXT DEFAULT (datetime('now', 'localtime'))
+  semester_id INTEGER NOT NULL,
+  created_at TEXT DEFAULT (datetime('now', 'localtime')),
+  FOREIGN KEY (semester_id) REFERENCES semester(id),
+  UNIQUE(code, semester_id)
 );
 
 CREATE TABLE IF NOT EXISTS enrollment (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   student_id INTEGER NOT NULL,
   course_id INTEGER NOT NULL,
+  semester_id INTEGER NOT NULL,
   enrolled_at TEXT DEFAULT (datetime('now', 'localtime')),
-  UNIQUE(student_id, course_id),
+  UNIQUE(student_id, course_id, semester_id),
   FOREIGN KEY (student_id) REFERENCES student(id),
-  FOREIGN KEY (course_id) REFERENCES course(id)
+  FOREIGN KEY (course_id) REFERENCES course(id),
+  FOREIGN KEY (semester_id) REFERENCES semester(id)
 );
 
 CREATE INDEX IF NOT EXISTS idx_enrollment_student ON enrollment(student_id);
 CREATE INDEX IF NOT EXISTS idx_enrollment_course ON enrollment(course_id);
+CREATE INDEX IF NOT EXISTS idx_enrollment_semester ON enrollment(semester_id);
 
 CREATE TABLE IF NOT EXISTS teacher (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -106,10 +122,13 @@ CREATE TABLE IF NOT EXISTS schedule (
   day_of_week INTEGER NOT NULL,
   start_period INTEGER NOT NULL,
   end_period INTEGER NOT NULL,
+  semester_id INTEGER,
   FOREIGN KEY (course_id) REFERENCES course(id),
-  FOREIGN KEY (classroom_id) REFERENCES classroom(id)
+  FOREIGN KEY (classroom_id) REFERENCES classroom(id),
+  FOREIGN KEY (semester_id) REFERENCES semester(id)
 );
 
 CREATE INDEX IF NOT EXISTS idx_schedule_course ON schedule(course_id);
 CREATE INDEX IF NOT EXISTS idx_schedule_classroom ON schedule(classroom_id);
 CREATE INDEX IF NOT EXISTS idx_schedule_day ON schedule(day_of_week);
+CREATE INDEX IF NOT EXISTS idx_schedule_semester ON schedule(semester_id);
