@@ -60,3 +60,31 @@ CREATE TABLE IF NOT EXISTS course_teacher (
 
 CREATE INDEX IF NOT EXISTS idx_course_teacher_course ON course_teacher(course_id);
 CREATE INDEX IF NOT EXISTS idx_course_teacher_teacher ON course_teacher(teacher_id);
+
+CREATE TABLE IF NOT EXISTS college (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  name TEXT NOT NULL UNIQUE,
+  created_at TEXT DEFAULT (datetime('now', 'localtime'))
+);
+
+CREATE TABLE IF NOT EXISTS major (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  name TEXT NOT NULL,
+  college_id INTEGER NOT NULL,
+  created_at TEXT DEFAULT (datetime('now', 'localtime')),
+  FOREIGN KEY (college_id) REFERENCES college(id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_major_college ON major(college_id);
+
+CREATE TABLE IF NOT EXISTS class (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  name TEXT NOT NULL,
+  major_id INTEGER NOT NULL,
+  created_at TEXT DEFAULT (datetime('now', 'localtime')),
+  FOREIGN KEY (major_id) REFERENCES major(id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_class_major ON class(major_id);
+
+ALTER TABLE student ADD COLUMN class_id INTEGER REFERENCES class(id);

@@ -1,6 +1,6 @@
 const crypto = require('crypto');
 const logger = require('./logger');
-const { Admin, Student, Course, Enrollment, Teacher, CourseTeacher } = require('./models');
+const { Admin, Student, Course, Enrollment, Teacher, CourseTeacher, College, Major, ClassInfo } = require('./models');
 
 function hashPassword(password) {
   return crypto.createHash('sha256').update(password, 'utf8').digest('hex');
@@ -9,6 +9,43 @@ function hashPassword(password) {
 const TEST_PASSWORD_HASH = hashPassword('123456');
 
 /** 每次启动都确保测试账号存在且密码为 123456，避免旧库导致登录失败 */
+async function ensureOrgStructure() {
+  const [college1] = await College.findOrCreate({ where: { name: '计算机学院' }, defaults: { name: '计算机学院' } });
+  const [college2] = await College.findOrCreate({ where: { name: '数学学院' }, defaults: { name: '数学学院' } });
+
+  const [major1] = await Major.findOrCreate({
+    where: { name: '软件工程', collegeId: college1.id },
+    defaults: { name: '软件工程', collegeId: college1.id },
+  });
+  const [major2] = await Major.findOrCreate({
+    where: { name: '计算机科学与技术', collegeId: college1.id },
+    defaults: { name: '计算机科学与技术', collegeId: college1.id },
+  });
+  const [major3] = await Major.findOrCreate({
+    where: { name: '应用数学', collegeId: college2.id },
+    defaults: { name: '应用数学', collegeId: college2.id },
+  });
+
+  const [cls1] = await ClassInfo.findOrCreate({
+    where: { name: '软工2401班', majorId: major1.id },
+    defaults: { name: '软工2401班', majorId: major1.id },
+  });
+  const [cls2] = await ClassInfo.findOrCreate({
+    where: { name: '软工2402班', majorId: major1.id },
+    defaults: { name: '软工2402班', majorId: major1.id },
+  });
+  const [cls3] = await ClassInfo.findOrCreate({
+    where: { name: '计科2401班', majorId: major2.id },
+    defaults: { name: '计科2401班', majorId: major2.id },
+  });
+  const [cls4] = await ClassInfo.findOrCreate({
+    where: { name: '应数2401班', majorId: major3.id },
+    defaults: { name: '应数2401班', majorId: major3.id },
+  });
+
+  return { cls1, cls2, cls3, cls4 };
+}
+
 async function ensureTestAccounts() {
   const [admin] = await Admin.findOrCreate({
     where: { username: 'admin' },
@@ -17,18 +54,23 @@ async function ensureTestAccounts() {
   if (admin && admin.passwordHash !== TEST_PASSWORD_HASH) {
     await admin.update({ passwordHash: TEST_PASSWORD_HASH });
   }
+
+  const { cls1, cls2, cls3 } = await ensureOrgStructure();
+
   const testStudents = [
-    { studentNo: 'S2024001', name: '张三' },
-    { studentNo: 'S2024002', name: '李四' },
-    { studentNo: 'S2024003', name: '王五' },
+    { studentNo: 'S2024001', name: '张三', classId: cls1.id },
+    { studentNo: 'S2024002', name: '李四', classId: cls1.id },
+    { studentNo: 'S2024003', name: '王五', classId: cls2.id },
   ];
   for (const s of testStudents) {
     const [student, created] = await Student.findOrCreate({
       where: { studentNo: s.studentNo },
-      defaults: { name: s.name, passwordHash: TEST_PASSWORD_HASH },
+      defaults: { name: s.name, passwordHash: TEST_PASSWORD_HASH, classId: s.classId },
     });
-    if (!created && student.passwordHash !== TEST_PASSWORD_HASH) {
-      await student.update({ passwordHash: TEST_PASSWORD_HASH, name: s.name });
+    if (!created) {
+      const updates = { passwordHash: TEST_PASSWORD_HASH, name: s.name };
+      if (!student.classId) updates.classId = s.classId;
+      await student.update(updates);
     }
   }
   const testTeachers = [

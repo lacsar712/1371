@@ -2,7 +2,7 @@ const express = require('express');
 const { body, validationResult } = require('express-validator');
 const router = express.Router();
 const { hashPassword } = require('../db');
-const { Admin, Student, Teacher } = require('../models');
+const { Admin, Student, Teacher, ClassInfo, Major, College } = require('../models');
 const logger = require('../logger');
 
 const loginValidators = [
@@ -45,13 +45,52 @@ router.post('/login', loginValidators, async (req, res) => {
     }
     const row = await Student.findOne({
       where: { studentNo: username, passwordHash: hash },
-      attributes: ['id', 'studentNo', 'name'],
+      attributes: ['id', 'studentNo', 'name', 'classId'],
+      include: [
+        {
+          model: ClassInfo,
+          as: 'classInfo',
+          attributes: ['id', 'name'],
+          include: [
+            {
+              model: Major,
+              as: 'major',
+              attributes: ['id', 'name'],
+              include: [
+                { model: College, as: 'college', attributes: ['id', 'name'] },
+              ],
+            },
+          ],
+        },
+      ],
     });
     if (!row) {
       logger.warn('Student login failed', { username });
       return sendJson(res, 401, { ok: false, message: '学号或密码错误' });
     }
-    return sendJson(res, 200, { ok: true, data: { id: row.id, studentNo: row.studentNo, name: row.name, role: 'student' } });
+    const org = {};
+    if (row.classInfo) {
+      org.classId = row.classInfo.id;
+      org.className = row.classInfo.name;
+      if (row.classInfo.major) {
+        org.majorId = row.classInfo.major.id;
+        org.majorName = row.classInfo.major.name;
+        if (row.classInfo.major.college) {
+          org.collegeId = row.classInfo.major.college.id;
+          org.collegeName = row.classInfo.major.college.name;
+        }
+      }
+    }
+    return sendJson(res, 200, {
+      ok: true,
+      data: {
+        id: row.id,
+        studentNo: row.studentNo,
+        name: row.name,
+        role: 'student',
+        org,
+      },
+    });
   } catch (e) {
     logger.error('Login error', { error: e.message, stack: e.stack });
     return sendJson(res, 500, { ok: false, message: '服务器错误' });

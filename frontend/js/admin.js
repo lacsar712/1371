@@ -44,11 +44,16 @@
     document.querySelectorAll('.sidebar-nav a').forEach((a) => {
       a.classList.toggle('active', a.dataset.page === page);
     });
+    document.getElementById('page-organization').style.display = page === 'organization' ? '' : 'none';
     document.getElementById('page-courses').style.display = page === 'courses' ? '' : 'none';
     document.getElementById('page-teachers').style.display = page === 'teachers' ? '' : 'none';
     const title = document.getElementById('pageTitle');
     const subtitle = document.getElementById('pageSubtitle');
-    if (page === 'courses') {
+    if (page === 'organization') {
+      title.textContent = '组织架构';
+      subtitle.textContent = '管理学院、专业、班级与学生归属';
+      loadOrgTree();
+    } else if (page === 'courses') {
       title.textContent = '课程管理';
       subtitle.textContent = '管理课程信息、容量与授课教师';
       loadCourses();
@@ -388,6 +393,484 @@
   });
   document.getElementById('collegeFilter').addEventListener('change', loadTeachers);
 
+  // ========== 组织架构 ==========
+  let orgTreeData = [];
+  let currentSelectedClass = null;
+  let dragStudentId = null;
+  let pendingDeleteNode = null;
+
+  const TYPE_LABEL = { college: '学院', major: '专业', class: '班级', student: '学生' };
+  const TYPE_ICON = { college: '🏛️', major: '📚', class: '👥', student: '🎓' };
+
+  async function loadOrgTree() {
+    const container = document.getElementById('orgTree');
+    if (!container) return;
+    container.innerHTML = '<p style="color:var(--text-secondary);padding:20px;text-align:center;">加载中...</p>';
+    const { data } = await api('/api/admin/org/tree');
+    if (!data || !data.ok || !Array.isArray(data.data)) {
+      container.innerHTML = '<p style="color:var(--danger);padding:20px;text-align:center;">加载失败</p>';
+      return;
+    }
+    orgTreeData = data.data;
+    renderOrgTree();
+  }
+
+  function renderOrgTree() {
+    const container = document.getElementById('orgTree');
+    if (!orgTreeData.length) {
+      container.innerHTML = '<p style="color:var(--text-secondary);padding:20px;text-align:center;">暂无学院，点击右上角「新增学院」开始创建</p>';
+      return;
+    }
+    container.innerHTML = orgTreeData.map((node) => renderTreeNode(node, 0)).join('');
+    bindTreeEvents();
+  }
+
+  function renderTreeNode(node, depth) {
+    const hasChildren = node.children && node.children.length > 0;
+    const typeLabel = TYPE_LABEL[node.type] || '节点';
+    const icon = TYPE_ICON[node.type] || '📁';
+    const extra = node.type === 'student' && node.studentNo ? ` <span style="color:var(--text-secondary);font-weight:400;">(${escapeHtml(node.studentNo)})</span>` : '';
+    const draggable = node.type === 'student' ? 'draggable="true"' : '';
+    const dropTarget = node.type === 'class' ? 'data-drop-target="true"' : '';
+
+    const childHtml = hasChildren
+      ? `<div class="tree-children">${node.children.map((c) => renderTreeNode(c, depth + 1)).join('')}</div>`
+      : '';
+
+    const actions = node.type !== 'student'
+      ? `<div class="tree-node-actions">
+           <button type="button" class="tree-act-btn tree-add-btn" data-action="add" data-type="${node.type}" data-id="${node.id}" title="新增下级">＋</button>
+           <button type="button" class="tree-act-btn tree-edit-btn" data-action="edit" data-type="${node.type}" data-id="${node.id}" title="重命名">✎</button>
+           <button type="button" class="tree-act-btn tree-del-btn" data-action="delete" data-type="${node.type}" data-id="${node.id}" title="删除">✕</button>
+         </div>`
+      : '';
+
+    return `
+      <div class="tree-node" data-type="${node.type}" data-id="${node.id}" style="padding-left:${depth * 18}px;" ${draggable} ${dropTarget}>
+        <div class="tree-node-row">
+          ${hasChildren ? `<span class="tree-toggle" data-toggle="${node.id}">▸</span>` : '<span class="tree-toggle tree-toggle-placeholder"></span>'}
+          <span class="tree-node-icon">${icon}</span>
+          <span class="tree-node-label"><strong>${escapeHtml(node.name)}</strong>${extra}</span>
+          ${actions}
+        </div>
+        ${childHtml}
+      </div>`;
+  }
+
+  function bindTreeEvents() {
+    const container = document.getElementById('orgTree');
+
+    container.querySelectorAll('.tree-toggle[data-toggle]').forEach((el) => {
+      el.addEventListener('click', () => {
+        const node = el.closest('.tree-node');
+        const children = node.querySelector(':scope > .tree-children');
+        if (children) {
+          const expanded = children.style.display !== 'none';
+          children.style.display = expanded ? 'none' : '';
+          el.textContent = expanded ? '▸' : '▾';
+          el.classList.toggle('expanded', !expanded);
+        }
+      });
+    });
+
+    container.querySelectorAll('.tree-node-row').forEach((row) => {
+      row.addEventListener('click', (e) => {
+        if (e.target.closest('.tree-act-btn') || e.target.closest('.tree-toggle')) return;
+        const node = row.closest('.tree-node');
+        const type = node.dataset.type;
+        const id = parseInt(node.dataset.id, 10);
+        if (type === 'class') {
+          selectClassNode(id, node);
+        } else if (type === 'student') {
+          showToast('学生节点：可拖拽到其他班级进行调班', 'info');
+        }
+      });
+    });
+
+    container.querySelectorAll('.tree-add-btn').forEach((btn) => {
+      btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        openOrgAdd(btn.dataset.type, parseInt(btn.dataset.id, 10));
+      });
+    });
+    container.querySelectorAll('.tree-edit-btn').forEach((btn) => {
+      btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        openOrgEdit(btn.dataset.type, parseInt(btn.dataset.id, 10));
+      });
+    });
+    container.querySelectorAll('.tree-del-btn').forEach((btn) => {
+      btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        confirmOrgDelete(btn.dataset.type, parseInt(btn.dataset.id, 10));
+      });
+    });
+
+    container.querySelectorAll('.tree-node[draggable="true"]').forEach((node) => {
+      node.addEventListener('dragstart', (e) => {
+        const id = parseInt(node.dataset.id, 10);
+        dragStudentId = id;
+        e.dataTransfer.effectAllowed = 'move';
+        node.classList.add('dragging');
+      });
+      node.addEventListener('dragend', () => {
+        node.classList.remove('dragging');
+        dragStudentId = null;
+        container.querySelectorAll('.tree-node.drag-over').forEach((n) => n.classList.remove('drag-over'));
+      });
+    });
+
+    container.querySelectorAll('.tree-node[data-drop-target="true"]').forEach((node) => {
+      node.addEventListener('dragover', (e) => {
+        if (!dragStudentId) return;
+        e.preventDefault();
+        e.dataTransfer.dropEffect = 'move';
+        node.classList.add('drag-over');
+      });
+      node.addEventListener('dragleave', () => {
+        node.classList.remove('drag-over');
+      });
+      node.addEventListener('drop', async (e) => {
+        e.preventDefault();
+        node.classList.remove('drag-over');
+        if (!dragStudentId) return;
+        const targetClassId = parseInt(node.dataset.id, 10);
+        await moveStudentToClass(dragStudentId, targetClassId);
+      });
+    });
+  }
+
+  async function selectClassNode(classId, nodeEl) {
+    document.querySelectorAll('#orgTree .tree-node.selected').forEach((n) => n.classList.remove('selected'));
+    if (nodeEl) nodeEl.classList.add('selected');
+    currentSelectedClass = classId;
+    const detailTitle = document.getElementById('orgDetailTitle');
+    const detail = document.getElementById('orgDetail');
+    detailTitle.textContent = '班级学生列表';
+    detail.innerHTML = '<p style="color:var(--text-secondary);padding:40px;text-align:center;">加载中...</p>';
+
+    const { data } = await api('/api/admin/org/classes/' + classId + '/students');
+    if (!data || !data.ok) {
+      detail.innerHTML = '<p style="color:var(--danger);padding:40px;text-align:center;">加载失败</p>';
+      return;
+    }
+    const students = data.data || [];
+    if (!students.length) {
+      detail.innerHTML = '<p style="color:var(--text-secondary);padding:40px;text-align:center;">该班级暂无学生</p>';
+      return;
+    }
+
+    // 同时获取所有班级用于调班下拉
+    const { data: classesData } = await api('/api/admin/org/classes');
+    const allClasses = (classesData && classesData.ok && classesData.data) || [];
+
+    detail.innerHTML = `
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>ID</th>
+              <th>学号</th>
+              <th>姓名</th>
+              <th>调至班级</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${students.map((s) => `
+              <tr>
+                <td>${s.id}</td>
+                <td>${escapeHtml(s.studentNo)}</td>
+                <td style="font-weight:600;">${escapeHtml(s.name)}</td>
+                <td>
+                  <select class="student-move-select" data-student-id="${s.id}">
+                    <option value="">-- 选择班级调班 --</option>
+                    ${allClasses.filter((c) => c.id !== classId).map((c) => `<option value="${c.id}">${escapeHtml(c.collegeName || '')} / ${escapeHtml(c.majorName || '')} / ${escapeHtml(c.name)}</option>`).join('')}
+                  </select>
+                </td>
+              </tr>
+            `).join('')}
+          </tbody>
+        </table>
+      </div>
+    `;
+
+    detail.querySelectorAll('.student-move-select').forEach((sel) => {
+      sel.addEventListener('change', async () => {
+        const targetClassId = parseInt(sel.value, 10);
+        const studentId = parseInt(sel.dataset.studentId, 10);
+        if (!targetClassId || !studentId) return;
+        await moveStudentToClass(studentId, targetClassId);
+      });
+    });
+  }
+
+  async function moveStudentToClass(studentId, classId) {
+    if (!studentId || !classId) return;
+    const { data } = await api('/api/admin/org/students/' + studentId + '/move', {
+      method: 'POST',
+      body: JSON.stringify({ classId }),
+    });
+    if (data && data.ok) {
+      showToast('调班成功', 'success');
+      loadOrgTree();
+      if (currentSelectedClass) {
+        // 重新加载当前班级列表（如果学生还在当前班级）
+        setTimeout(() => {
+          const node = document.querySelector(`#orgTree .tree-node[data-type="class"][data-id="${currentSelectedClass}"]`);
+          if (node) selectClassNode(currentSelectedClass, node);
+        }, 200);
+      }
+    } else {
+      showToast((data && data.message) || '调班失败', 'error');
+    }
+  }
+
+  // ======== 新增/重命名弹窗 ========
+  const orgModal = document.getElementById('orgModalOverlay');
+  const orgForm = document.getElementById('orgForm');
+
+  function getApiPrefix(type) {
+    if (type === 'college') return '/api/admin/org/colleges';
+    if (type === 'major') return '/api/admin/org/majors';
+    if (type === 'class') return '/api/admin/org/classes';
+    return '';
+  }
+
+  function getChildType(type) {
+    if (type === 'college') return 'major';
+    if (type === 'major') return 'class';
+    return null;
+  }
+
+  async function openOrgAdd(parentType, parentId) {
+    // 新增：在 parentType 下新增子节点
+    const childType = getChildType(parentType);
+    if (!childType) return;
+    document.getElementById('orgNodeId').value = '';
+    document.getElementById('orgNodeType').value = childType;
+    document.getElementById('orgName').value = '';
+    document.getElementById('orgModalTitle').textContent = '新增' + TYPE_LABEL[childType];
+
+    // 显示父级选择
+    const parentGroup = document.getElementById('orgParentGroup');
+    const parentLabel = document.getElementById('orgParentLabel');
+    const parentSelect = document.getElementById('orgParentSelect');
+    parentGroup.style.display = '';
+
+    if (childType === 'major') {
+      parentLabel.textContent = '所属学院';
+      const { data } = await api('/api/admin/org/colleges');
+      const list = (data && data.ok && data.data) || [];
+      parentSelect.innerHTML = list.map((c) => `<option value="${c.id}" ${c.id === parentId ? 'selected' : ''}>${escapeHtml(c.name)}</option>`).join('');
+      document.getElementById('orgParentId').value = parentId || '';
+    } else if (childType === 'class') {
+      parentLabel.textContent = '所属专业';
+      const { data } = await api('/api/admin/org/majors');
+      const list = (data && data.ok && data.data) || [];
+      parentSelect.innerHTML = list.map((m) => `<option value="${m.id}" ${m.id === parentId ? 'selected' : ''}>${escapeHtml((m.collegeName ? m.collegeName + ' / ' : '') + m.name)}</option>`).join('');
+      document.getElementById('orgParentId').value = parentId || '';
+    }
+
+    orgModal.classList.remove('modal-editing');
+    orgModal.classList.add('show');
+    setTimeout(() => document.getElementById('orgName').focus(), 100);
+  }
+
+  async function openOrgAddRoot() {
+    // 从根按钮新增学院
+    document.getElementById('orgNodeId').value = '';
+    document.getElementById('orgNodeType').value = 'college';
+    document.getElementById('orgName').value = '';
+    document.getElementById('orgModalTitle').textContent = '新增学院';
+    document.getElementById('orgParentGroup').style.display = 'none';
+    orgModal.classList.remove('modal-editing');
+    orgModal.classList.add('show');
+    setTimeout(() => document.getElementById('orgName').focus(), 100);
+  }
+
+  async function openOrgEdit(type, id) {
+    // 找到节点信息
+    let target = null;
+    function walk(nodes) {
+      for (const n of nodes) {
+        if (n.type === type && n.id === id) { target = n; return true; }
+        if (n.children && walk(n.children)) return true;
+      }
+      return false;
+    }
+    walk(orgTreeData);
+    if (!target) return;
+
+    document.getElementById('orgNodeId').value = id;
+    document.getElementById('orgNodeType').value = type;
+    document.getElementById('orgName').value = target.name;
+    document.getElementById('orgModalTitle').textContent = '重命名' + TYPE_LABEL[type];
+
+    const parentGroup = document.getElementById('orgParentGroup');
+    if (type === 'college') {
+      parentGroup.style.display = 'none';
+    } else {
+      parentGroup.style.display = '';
+      const parentLabel = document.getElementById('orgParentLabel');
+      const parentSelect = document.getElementById('orgParentSelect');
+      if (type === 'major') {
+        parentLabel.textContent = '所属学院';
+        const { data } = await api('/api/admin/org/colleges');
+        const list = (data && data.ok && data.data) || [];
+        parentSelect.innerHTML = list.map((c) => `<option value="${c.id}" ${c.id === target.collegeId ? 'selected' : ''}>${escapeHtml(c.name)}</option>`).join('');
+      } else if (type === 'class') {
+        parentLabel.textContent = '所属专业';
+        const { data } = await api('/api/admin/org/majors');
+        const list = (data && data.ok && data.data) || [];
+        parentSelect.innerHTML = list.map((m) => `<option value="${m.id}" ${m.id === target.majorId ? 'selected' : ''}>${escapeHtml((m.collegeName ? m.collegeName + ' / ' : '') + m.name)}</option>`).join('');
+      }
+    }
+
+    orgModal.classList.add('modal-editing', 'show');
+    setTimeout(() => document.getElementById('orgName').focus(), 100);
+  }
+
+  function closeOrgModal() {
+    orgModal.classList.remove('show');
+  }
+
+  orgForm && orgForm.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const id = document.getElementById('orgNodeId').value.trim();
+    const type = document.getElementById('orgNodeType').value;
+    const name = document.getElementById('orgName').value.trim();
+    const parentSelect = document.getElementById('orgParentSelect');
+    const parentId = parentSelect && parentSelect.value ? parseInt(parentSelect.value, 10) : null;
+    if (!name || !type) return;
+
+    const prefix = getApiPrefix(type);
+    if (!prefix) return;
+
+    let payload = { name };
+    if (type === 'major' && parentId) payload.collegeId = parentId;
+    if (type === 'class' && parentId) payload.majorId = parentId;
+
+    if (id) {
+      const { data } = await api(prefix + '/' + id, { method: 'PUT', body: JSON.stringify(payload) });
+      if (data && data.ok) {
+        showToast('保存成功', 'success');
+        closeOrgModal();
+        loadOrgTree();
+      } else {
+        showToast((data && data.message) || '保存失败', 'error');
+      }
+    } else {
+      const { data } = await api(prefix, { method: 'POST', body: JSON.stringify(payload) });
+      if (data && data.ok) {
+        showToast('新增成功', 'success');
+        closeOrgModal();
+        loadOrgTree();
+      } else {
+        showToast((data && data.message) || '新增失败', 'error');
+      }
+    }
+  });
+
+  document.getElementById('orgModalCancel') && document.getElementById('orgModalCancel').addEventListener('click', closeOrgModal);
+  orgModal && orgModal.addEventListener('click', (e) => {
+    if (e.target === orgModal) closeOrgModal();
+  });
+  document.querySelector('.tree-root-add') && document.querySelector('.tree-root-add').addEventListener('click', openOrgAddRoot);
+
+  // ======== 删除确认弹窗 ========
+  const orgDeleteOverlay = document.getElementById('orgDeleteOverlay');
+
+  function findNodeInfo(type, id) {
+    let result = null;
+    function walk(nodes) {
+      for (const n of nodes) {
+        if (n.type === type && n.id === id) { result = n; return true; }
+        if (n.children && walk(n.children)) return true;
+      }
+      return false;
+    }
+    walk(orgTreeData);
+    return result;
+  }
+
+  function countCascade(node) {
+    const counts = { majors: 0, classes: 0, students: 0 };
+    function walk(n) {
+      if (!n.children) return;
+      for (const c of n.children) {
+        if (c.type === 'major') counts.majors++;
+        if (c.type === 'class') counts.classes++;
+        if (c.type === 'student') counts.students++;
+        walk(c);
+      }
+    }
+    walk(node);
+    return counts;
+  }
+
+  async function confirmOrgDelete(type, id) {
+    const node = findNodeInfo(type, id);
+    if (!node) return;
+    const cascade = countCascade(node);
+    const hasChildren = cascade.majors > 0 || cascade.classes > 0 || cascade.students > 0;
+
+    let message = `确定要删除「${escapeHtml(node.name)}」吗？`;
+    if (hasChildren) {
+      const parts = [];
+      if (cascade.majors) parts.push(`${cascade.majors} 个专业`);
+      if (cascade.classes) parts.push(`${cascade.classes} 个班级`);
+      if (cascade.students) parts.push(`${cascade.students} 名学生`);
+      message += `<br><br><span style="color:var(--danger);">⚠️ 该${TYPE_LABEL[type]}下还包含 ${parts.join('、')}，请先处理子节点后再删除。</span>`;
+    }
+
+    const msgEl = document.getElementById('orgDeleteMessage');
+    msgEl.innerHTML = message;
+
+    pendingDeleteNode = { type, id, hasChildren };
+    // 带子节点时禁用确定按钮
+    const okBtn = document.getElementById('orgDeleteOk');
+    if (hasChildren) {
+      okBtn.disabled = true;
+      okBtn.style.opacity = '0.5';
+      okBtn.style.cursor = 'not-allowed';
+    } else {
+      okBtn.disabled = false;
+      okBtn.style.opacity = '';
+      okBtn.style.cursor = '';
+    }
+
+    orgDeleteOverlay.classList.add('show');
+  }
+
+  function closeOrgDelete() {
+    orgDeleteOverlay.classList.remove('show');
+    pendingDeleteNode = null;
+  }
+
+  document.getElementById('orgDeleteCancel') && document.getElementById('orgDeleteCancel').addEventListener('click', closeOrgDelete);
+  orgDeleteOverlay && orgDeleteOverlay.addEventListener('click', (e) => {
+    if (e.target === orgDeleteOverlay) closeOrgDelete();
+  });
+  document.getElementById('orgDeleteOk') && document.getElementById('orgDeleteOk').addEventListener('click', async () => {
+    if (!pendingDeleteNode || pendingDeleteNode.hasChildren) return;
+    const { type, id } = pendingDeleteNode;
+    const prefix = getApiPrefix(type);
+    const { data } = await api(prefix + '/' + id, { method: 'DELETE' });
+    if (data && data.ok) {
+      showToast('已删除', 'success');
+      closeOrgDelete();
+      loadOrgTree();
+      if (currentSelectedClass && type === 'class' && currentSelectedClass === id) {
+        currentSelectedClass = null;
+        document.getElementById('orgDetailTitle').textContent = '班级学生列表';
+        document.getElementById('orgDetail').innerHTML = '<p style="color:var(--text-secondary);padding:40px;text-align:center;">请在左侧选择一个班级节点</p>';
+      }
+    } else {
+      showToast((data && data.message) || '删除失败', 'error');
+      closeOrgDelete();
+    }
+  });
+
   // ========== 导航绑定 ==========
   document.querySelectorAll('.sidebar-nav a').forEach((a) => {
     a.addEventListener('click', (e) => {
@@ -411,7 +894,7 @@
       window.location.href = 'index.html';
       return;
     }
-    loadCourses();
+    switchPage('organization');
   }
 
   init();

@@ -177,6 +177,24 @@
     }
   }
 
+  function renderBreadcrumb() {
+    const el = document.getElementById('studentBreadcrumb');
+    if (!el || !user) return;
+    const org = user.org || {};
+    const parts = [org.collegeName, org.majorName, org.className].filter(Boolean);
+    if (!parts.length) {
+      el.innerHTML = '<span style="color:var(--text-secondary);">暂无班级信息</span>';
+      return;
+    }
+    el.innerHTML = parts.map((p, i) => {
+      const isLast = i === parts.length - 1;
+      if (isLast) {
+        return `<span style="color:var(--text-primary);">${escapeHtml(p)}</span>`;
+      }
+      return `<span>${escapeHtml(p)}</span><span class="breadcrumb-sep">/</span>`;
+    }).join('');
+  }
+
   function init() {
     user = getStoredUser();
     if (!user) {
@@ -184,6 +202,7 @@
       return;
     }
     document.getElementById('userName').textContent = (user.name || user.studentNo || '') + ' · 学生';
+    renderBreadcrumb();
 
     document.getElementById('logoutBtn').addEventListener('click', (e) => {
       sessionStorage.removeItem('user');

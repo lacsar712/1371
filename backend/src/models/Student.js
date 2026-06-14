@@ -8,7 +8,8 @@ module.exports = (sequelize) => {
       studentNo: { type: DataTypes.STRING(32), allowNull: false, unique: true, field: 'student_no' },
       name: { type: DataTypes.STRING(64), allowNull: false },
       passwordHash: { type: DataTypes.STRING(64), allowNull: false, field: 'password_hash' },
+      classId: { type: DataTypes.INTEGER, allowNull: true, field: 'class_id' },
     },
-    { tableName: 'student' }
+    { tableName: 'student', timestamps: false }
   );
 };

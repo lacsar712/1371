@@ -1030,3 +1030,278 @@ tr:last-child td {
     padding: 0 20px 20px;
   }
 }
+
+/* ========== 组织架构布局 ========== */
+.org-layout {
+  display: grid;
+  grid-template-columns: 380px 1fr;
+  gap: 24px;
+  align-items: start;
+  height: calc(100vh - 240px);
+  min-height: 520px;
+}
+
+.org-tree-panel,
+.org-detail-panel {
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.04) 0%, rgba(255, 255, 255, 0.02) 100%);
+  -webkit-backdrop-filter: blur(16px);
+  backdrop-filter: blur(16px);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 20px;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.04);
+  height: 100%;
+}
+
+.tree-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 18px 22px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  background: linear-gradient(180deg, rgba(99, 102, 241, 0.12) 0%, transparent 100%);
+}
+
+.tree-title {
+  font-size: 1rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  padding-left: 12px;
+  border-left: 3px solid var(--accent-start);
+}
+
+.tree-header .btn {
+  height: 36px;
+  padding: 0 18px;
+  font-size: 0.875rem;
+  border-radius: 10px;
+  width: auto;
+  min-width: auto;
+  box-shadow: 0 2px 12px rgba(99, 102, 241, 0.35);
+}
+
+.org-tree,
+.org-detail {
+  flex: 1;
+  overflow-y: auto;
+  padding: 12px 0;
+  -webkit-overflow-scrolling: touch;
+}
+
+/* ========== 树形节点 ========== */
+.tree-node {
+  user-select: none;
+}
+
+.tree-node-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 14px;
+  border-radius: 10px;
+  cursor: pointer;
+  transition: background 0.15s ease;
+  margin: 2px 8px;
+}
+
+.tree-node-row:hover {
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.tree-node.selected > .tree-node-row {
+  background: linear-gradient(90deg, rgba(99, 102, 241, 0.22) 0%, rgba(139, 92, 246, 0.1) 100%);
+  box-shadow: inset 0 0 0 1px rgba(99, 102, 241, 0.35);
+}
+
+.tree-node.selected > .tree-node-row .tree-node-label {
+  color: #c4b5fd;
+}
+
+.tree-toggle {
+  width: 22px;
+  min-width: 22px;
+  height: 22px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-secondary);
+  font-size: 0.75rem;
+  border-radius: 6px;
+  transition: color 0.15s, background 0.15s, transform 0.15s;
+  cursor: pointer;
+}
+
+.tree-toggle:hover {
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--text-primary);
+}
+
+.tree-toggle.expanded {
+  color: var(--accent-start);
+}
+
+.tree-toggle-placeholder {
+  width: 22px;
+  min-width: 22px;
+  height: 22px;
+  display: inline-block;
+}
+
+.tree-node-icon {
+  font-size: 1rem;
+  line-height: 1;
+}
+
+.tree-node-label {
+  flex: 1;
+  min-width: 0;
+  font-size: 0.9375rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.tree-node-actions {
+  display: inline-flex;
+  gap: 4px;
+  opacity: 0;
+  transition: opacity 0.15s;
+}
+
+.tree-node-row:hover .tree-node-actions {
+  opacity: 1;
+}
+
+.tree-act-btn {
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border: none;
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--text-secondary);
+  border-radius: 7px;
+  cursor: pointer;
+  font-size: 0.8125rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.15s, color 0.15s;
+}
+
+.tree-act-btn:hover {
+  background: rgba(255, 255, 255, 0.12);
+  color: var(--text-primary);
+}
+
+.tree-act-btn.tree-del-btn:hover {
+  background: rgba(239, 68, 68, 0.2);
+  color: var(--danger);
+}
+
+.tree-act-btn.tree-add-btn:hover {
+  background: rgba(34, 197, 94, 0.2);
+  color: var(--success);
+}
+
+.tree-children {
+  padding-left: 0;
+}
+
+/* ========== 拖拽样式 ========== */
+.tree-node.dragging {
+  opacity: 0.4;
+}
+
+.tree-node.drag-over > .tree-node-row {
+  background: linear-gradient(90deg, rgba(34, 197, 94, 0.2) 0%, rgba(34, 197, 94, 0.08) 100%);
+  box-shadow: inset 0 0 0 1px rgba(34, 197, 94, 0.45);
+}
+
+.tree-node.drag-over > .tree-node-row .tree-node-label {
+  color: #86efac;
+}
+
+/* ========== 学生端面包屑 ========== */
+.student-breadcrumb {
+  margin-top: 6px;
+  font-size: 0.8125rem;
+  color: var(--text-secondary);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  letter-spacing: 0.02em;
+}
+
+.student-breadcrumb .breadcrumb-sep {
+  color: rgba(255, 255, 255, 0.2);
+  font-size: 0.75rem;
+}
+
+/* ========== 班级学生列表中的调班下拉 ========== */
+.student-move-select {
+  height: 36px;
+  padding: 0 12px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid var(--bg-glass-border);
+  border-radius: 8px;
+  color: var(--text-primary);
+  font-size: 0.875rem;
+  cursor: pointer;
+  appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='none' stroke='%23a1a1aa' stroke-width='2'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 8px center;
+  background-size: 16px;
+  padding-right: 32px;
+  min-width: 220px;
+  transition: border-color 0.15s;
+}
+
+.student-move-select:focus {
+  outline: none;
+  border-color: var(--accent-start);
+}
+
+.org-detail .table-wrap {
+  margin: 0;
+  background: transparent;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+  border: none;
+  border-radius: 0;
+  overflow-x: auto;
+  box-shadow: none;
+}
+
+.org-detail .table-wrap th:first-child,
+.org-detail .table-wrap td:first-child {
+  width: 64px;
+  max-width: 64px;
+}
+
+.org-detail .table-wrap th:last-child,
+.org-detail .table-wrap td:last-child {
+  min-width: 240px;
+}
+
+/* ========== 组织页面响应式 ========== */
+@media (max-width: 900px) {
+  .org-layout {
+    grid-template-columns: 1fr;
+    height: auto;
+    min-height: 0;
+  }
+  .org-tree-panel,
+  .org-detail-panel {
+    height: auto;
+    min-height: 380px;
+  }
+}
+
+@media (max-width: 480px) {
+  .student-breadcrumb {
+    font-size: 0.75rem;
+  }
+}

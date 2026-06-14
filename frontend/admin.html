@@ -16,6 +16,10 @@
         <span class="brand-text">选课管理</span>
       </div>
       <nav class="sidebar-nav">
+        <a href="#" data-page="organization">
+          <span class="nav-icon" aria-hidden="true">🏛️</span>
+          <span>组织架构</span>
+        </a>
         <a href="#" class="active" data-page="courses">
           <span class="nav-icon" aria-hidden="true">📋</span>
           <span>课程管理</span>
@@ -34,6 +38,35 @@
         </div>
         <a href="index.html" class="btn btn-ghost btn-sm" id="logoutBtn" role="button">退出登录</a>
       </header>
+
+      <!-- 组织架构页面 -->
+      <div id="page-organization" class="admin-content" style="display:none;">
+        <section class="content-toolbar">
+          <h2 class="toolbar-title">学校组织架构</h2>
+          <div class="toolbar-actions">
+            <span style="color:var(--text-secondary);font-size:0.875rem;">点击节点查看详情，拖拽学生可进行调班</span>
+          </div>
+        </section>
+        <div class="org-layout">
+          <div class="org-tree-panel">
+            <div class="tree-header">
+              <span class="tree-title">组织树</span>
+              <button type="button" class="btn btn-primary btn-sm tree-root-add" data-type="college">＋ 新增学院</button>
+            </div>
+            <div id="orgTree" class="org-tree">
+              <p style="color:var(--text-secondary);padding:20px;text-align:center;">加载中...</p>
+            </div>
+          </div>
+          <div class="org-detail-panel">
+            <div class="tree-header">
+              <span class="tree-title" id="orgDetailTitle">班级学生列表</span>
+            </div>
+            <div id="orgDetail" class="org-detail">
+              <p style="color:var(--text-secondary);padding:40px;text-align:center;">请在左侧选择一个班级节点</p>
+            </div>
+          </div>
+        </div>
+      </div>
 
       <!-- 课程管理页面 -->
       <div id="page-courses" class="admin-content">
@@ -168,6 +201,43 @@
           <button type="submit" class="btn btn-primary">保存</button>
         </div>
       </form>
+    </div>
+  </div>
+
+  <!-- 组织架构 - 新增/重命名弹窗 -->
+  <div id="orgModalOverlay" class="modal-overlay">
+    <div class="modal" style="max-width:460px;">
+      <h2 id="orgModalTitle">新增</h2>
+      <form id="orgForm">
+        <input type="hidden" id="orgNodeId" />
+        <input type="hidden" id="orgNodeType" />
+        <input type="hidden" id="orgParentId" />
+        <div class="form-group" id="orgParentGroup" style="display:none;">
+          <label id="orgParentLabel">所属学院</label>
+          <select id="orgParentSelect">
+          </select>
+        </div>
+        <div class="form-group">
+          <label for="orgName">名称</label>
+          <input type="text" id="orgName" name="name" required placeholder="请输入名称" />
+        </div>
+        <div class="modal-actions">
+          <button type="button" class="btn btn-ghost" id="orgModalCancel">取消</button>
+          <button type="submit" class="btn btn-primary">保存</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- 组织架构 - 删除确认弹窗 -->
+  <div id="orgDeleteOverlay" class="modal-overlay confirm-modal">
+    <div class="modal modal-confirm">
+      <h2 class="confirm-title">确认删除</h2>
+      <p id="orgDeleteMessage" class="confirm-message"></p>
+      <div class="modal-actions confirm-actions">
+        <button type="button" class="btn btn-ghost" id="orgDeleteCancel">取消</button>
+        <button type="button" class="btn btn-danger" id="orgDeleteOk">确认删除</button>
+      </div>
     </div>
   </div>
 
