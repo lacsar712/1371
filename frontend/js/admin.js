@@ -1663,6 +1663,9 @@
       window.location.href = 'index.html';
       return;
     }
+    if (window.MessageCenter) {
+      MessageCenter.init(document.getElementById('msgBellContainer'));
+    }
     refreshSemesterDropdown().then(() => {
       const select = document.getElementById('adminSemesterSelect');
       if (select.value) currentSemesterId = parseInt(select.value, 10);

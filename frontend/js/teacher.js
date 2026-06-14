@@ -572,6 +572,10 @@
     }
     renderTeacherInfo();
 
+    if (window.MessageCenter) {
+      MessageCenter.init(document.getElementById('msgBellContainer'));
+    }
+
     document.getElementById('searchStudentBtn').addEventListener('click', loadStudents);
     document.getElementById('studentKeyword').addEventListener('keydown', (e) => {
       if (e.key === 'Enter') loadStudents();

@@ -705,6 +705,10 @@
     document.getElementById('userName').textContent = (user.name || user.studentNo || '') + ' · 学生';
     renderBreadcrumb();
 
+    if (window.MessageCenter) {
+      MessageCenter.init(document.getElementById('msgBellContainer'));
+    }
+
     document.getElementById('logoutBtn').addEventListener('click', (e) => {
       sessionStorage.removeItem('user');
       if (navigator.sendBeacon) {

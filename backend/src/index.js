@@ -26,6 +26,7 @@ const schedulesRouter = require('./routes/schedules');
 const semestersRouter = require('./routes/semesters');
 const gradesRouter = require('./routes/grades');
 const evaluationsRouter = require('./routes/evaluations');
+const messagesRouter = require('./routes/messages');
 const seed = require('./seed').seed;
 
 const PORT = parseInt(process.env.PORT || '8137', 10);
@@ -46,6 +47,7 @@ app.use('/api/semesters', semestersRouter);
 app.use('/api/admin/semesters', semestersRouter);
 app.use('/api/grades', gradesRouter);
 app.use('/api/evaluations', evaluationsRouter);
+app.use('/api/messages', messagesRouter);
 
 app.use((err, req, res, next) => {
   logger.error('Unhandled error', { error: err.message });
