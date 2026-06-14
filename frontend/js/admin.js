@@ -54,6 +54,7 @@
     document.getElementById('page-teachers').style.display = page === 'teachers' ? '' : 'none';
     document.getElementById('page-classrooms').style.display = page === 'classrooms' ? '' : 'none';
     document.getElementById('page-scheduling').style.display = page === 'scheduling' ? '' : 'none';
+    document.getElementById('page-evaluations').style.display = page === 'evaluations' ? '' : 'none';
     const title = document.getElementById('pageTitle');
     const subtitle = document.getElementById('pageSubtitle');
     if (page === 'semesters') {
@@ -77,6 +78,10 @@
       title.textContent = '排课中心';
       subtitle.textContent = '拖拽课程到网格完成排课，实时冲突检测';
       loadSchedulingData();
+    } else if (page === 'evaluations') {
+      title.textContent = '评教总览';
+      subtitle.textContent = '查看各课程评教汇总与明细';
+      loadEvalOverview();
     } else {
       title.textContent = '教师管理';
       subtitle.textContent = '管理教师基本信息与所属学院';
@@ -1534,6 +1539,106 @@
       }
     }
   }
+
+  // ========== 评教总览 ==========
+  let evalOverviewData = [];
+
+  function renderStarsText(rating) {
+    let html = '';
+    for (let i = 1; i <= 5; i++) {
+      html += `<span class="eval-star-display ${i <= Math.round(rating) ? 'active' : ''}">★</span>`;
+    }
+    return html;
+  }
+
+  async function loadEvalOverview() {
+    const tbody = document.getElementById('evalOverviewTableBody');
+    const { data } = await api('/api/evaluations/admin/courses');
+    if (!data || !data.ok || !Array.isArray(data.data)) {
+      tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;color:var(--danger);">加载失败</td></tr>';
+      return;
+    }
+    evalOverviewData = data.data;
+    if (!evalOverviewData.length) {
+      tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;color:var(--text-secondary);">暂无评教数据</td></tr>';
+      return;
+    }
+    tbody.innerHTML = evalOverviewData.map((r) => `
+      <tr>
+        <td>${escapeHtml(r.courseCode || '')}</td>
+        <td style="font-weight:600;">${escapeHtml(r.courseName || '')}</td>
+        <td>${r.evaluationCount}</td>
+        <td>
+          <div style="display:flex;align-items:center;gap:8px;">
+            ${renderStarsText(r.avgRating)}
+            <span style="color:var(--text-secondary);font-size:0.875rem;">${r.avgRating.toFixed(1)}</span>
+          </div>
+        </td>
+        <td>
+          <button type="button" class="btn btn-ghost btn-sm view-eval-detail-btn" data-id="${r.courseId}">查看明细</button>
+        </td>
+      </tr>`
+    ).join('');
+    tbody.querySelectorAll('.view-eval-detail-btn').forEach((btn) => {
+      btn.addEventListener('click', () => openEvalDetail(parseInt(btn.dataset.id, 10)));
+    });
+  }
+
+  async function openEvalDetail(courseId) {
+    const row = evalOverviewData.find((r) => r.courseId === courseId);
+    const title = row ? `${row.courseName || ''} 评教明细` : '评教明细';
+    document.getElementById('evalDetailTitle').textContent = title;
+    document.getElementById('evalDetailContent').innerHTML = '<p style="color:var(--text-secondary);text-align:center;padding:40px 0;">加载中...</p>';
+    document.getElementById('evalDetailOverlay').classList.add('show');
+
+    const { data } = await api('/api/evaluations/admin/course/' + courseId);
+    if (!data || !data.ok || !Array.isArray(data.data)) {
+      document.getElementById('evalDetailContent').innerHTML = '<p style="color:var(--danger);text-align:center;padding:40px 0;">加载失败</p>';
+      return;
+    }
+    const records = data.data;
+    if (!records.length) {
+      document.getElementById('evalDetailContent').innerHTML = '<p style="color:var(--text-secondary);text-align:center;padding:40px 0;">暂无评教记录</p>';
+      return;
+    }
+    let html = `<div class="table-wrap" style="margin:0;">
+      <table>
+        <thead>
+          <tr>
+            <th>学号</th>
+            <th>姓名</th>
+            <th>评分</th>
+            <th>评论</th>
+            <th>匿名</th>
+            <th>评教时间</th>
+          </tr>
+        </thead>
+        <tbody>`;
+    for (const r of records) {
+      const displayName = r.isAnonymous ? '匿名学生' : escapeHtml(r.studentName || '');
+      const displayNo = r.isAnonymous ? '—' : escapeHtml(r.studentNo || '');
+      html += `
+        <tr>
+          <td>${displayNo}</td>
+          <td style="font-weight:600;">${displayName}</td>
+          <td>${renderStarsText(r.rating)}</td>
+          <td style="max-width:300px;word-break:break-all;">${escapeHtml(r.comment || '')}</td>
+          <td>${r.isAnonymous ? '<span style="color:var(--accent-start);">是</span>' : '<span style="color:var(--text-secondary);">否</span>'}</td>
+          <td style="white-space:nowrap;">${r.createdAt ? new Date(r.createdAt).toLocaleString('zh-CN') : ''}</td>
+        </tr>`;
+    }
+    html += '</tbody></table></div>';
+    document.getElementById('evalDetailContent').innerHTML = html;
+  }
+
+  document.getElementById('evalDetailClose').addEventListener('click', () => {
+    document.getElementById('evalDetailOverlay').classList.remove('show');
+  });
+  document.getElementById('evalDetailOverlay').addEventListener('click', (e) => {
+    if (e.target === document.getElementById('evalDetailOverlay')) {
+      document.getElementById('evalDetailOverlay').classList.remove('show');
+    }
+  });
 
   // ========== 导航绑定 ==========
   document.querySelectorAll('.sidebar-nav a').forEach((a) => {

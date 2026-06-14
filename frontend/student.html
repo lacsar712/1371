@@ -134,6 +134,61 @@
       </div>
     </div>
   </div>
+
+  <!-- 评教弹窗 -->
+  <div id="evalModalOverlay" class="modal-overlay" role="dialog" aria-modal="true">
+    <div class="modal" style="max-width:520px;">
+      <h2 id="evalModalTitle">课程评教</h2>
+      <div class="eval-course-info" id="evalCourseInfo"></div>
+      <div class="form-group">
+        <label>评分</label>
+        <div class="eval-stars" id="evalStars">
+          <span class="eval-star" data-value="1">★</span>
+          <span class="eval-star" data-value="2">★</span>
+          <span class="eval-star" data-value="3">★</span>
+          <span class="eval-star" data-value="4">★</span>
+          <span class="eval-star" data-value="5">★</span>
+        </div>
+        <input type="hidden" id="evalRating" value="0" />
+      </div>
+      <div class="form-group">
+        <label for="evalComment">评论</label>
+        <textarea id="evalComment" rows="4" placeholder="请输入您对该课程的评价..." style="width:100%;resize:vertical;padding:12px;border-radius:10px;border:1px solid var(--bg-glass-border);background:rgba(255,255,255,0.04);color:var(--text-primary);font-size:0.9375rem;font-family:inherit;"></textarea>
+      </div>
+      <div class="form-group">
+        <label style="display:flex;align-items:center;gap:10px;cursor:pointer;">
+          <input type="checkbox" id="evalAnonymous" style="width:18px;height:18px;accent-color:var(--accent-start);" />
+          <span>匿名提交</span>
+        </label>
+      </div>
+      <div class="modal-actions">
+        <button type="button" class="btn btn-ghost" id="evalModalCancel">取消</button>
+        <button type="button" class="btn btn-primary" id="evalModalSubmit">提交评教</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 课程详情抽屉 -->
+  <div id="courseDrawerOverlay" class="modal-overlay">
+    <div class="course-drawer" id="courseDrawer">
+      <div class="drawer-header">
+        <h2 id="drawerCourseName">课程详情</h2>
+        <button type="button" class="btn btn-ghost drawer-close-btn" id="drawerCloseBtn">✕</button>
+      </div>
+      <div class="drawer-tabs">
+        <button type="button" class="drawer-tab active" data-drawer-tab="info">课程信息</button>
+        <button type="button" class="drawer-tab" data-drawer-tab="eval">评教</button>
+      </div>
+      <div class="drawer-body">
+        <div id="drawerTabInfo" class="drawer-tab-content">
+          <div id="drawerCourseInfo" style="padding:0 4px;"></div>
+        </div>
+        <div id="drawerTabEval" class="drawer-tab-content" style="display:none;">
+          <div id="drawerEvalContent"></div>
+        </div>
+      </div>
+    </div>
+  </div>
   <script src="js/student.js"></script>
 </body>
 </html>

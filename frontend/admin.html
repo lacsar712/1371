@@ -40,6 +40,10 @@
           <span class="nav-icon" aria-hidden="true">📅</span>
           <span>排课中心</span>
         </a>
+        <a href="#" data-page="evaluations">
+          <span class="nav-icon" aria-hidden="true">⭐</span>
+          <span>评教总览</span>
+        </a>
       </nav>
     </aside>
     <div class="admin-main">
@@ -265,6 +269,32 @@
         </div>
       </div>
 
+      <!-- 评教总览页面 -->
+      <div id="page-evaluations" class="admin-content" style="display:none;">
+        <section class="content-toolbar">
+          <h2 class="toolbar-title">课程评教总览</h2>
+          <div class="toolbar-actions">
+            <span style="color:var(--text-secondary);font-size:0.875rem;">点击「查看明细」查看课程完整评教记录</span>
+          </div>
+        </section>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>课程代码</th>
+                <th>课程名称</th>
+                <th>评教数</th>
+                <th>平均星级</th>
+                <th>操作</th>
+              </tr>
+            </thead>
+            <tbody id="evalOverviewTableBody">
+              <tr><td colspan="5" style="text-align:center;color:var(--text-secondary);">加载中...</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
     </div>
   </div>
 
@@ -474,6 +504,17 @@
       <div class="modal-actions" style="padding:0 32px 24px;">
         <button type="button" class="btn btn-ghost" id="scheduleDetailClose">关闭</button>
         <button type="button" class="btn btn-danger" id="scheduleDetailDelete">删除排课</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 评教明细弹窗 -->
+  <div id="evalDetailOverlay" class="modal-overlay">
+    <div class="modal" style="max-width:800px;">
+      <h2 id="evalDetailTitle">评教明细</h2>
+      <div id="evalDetailContent" style="max-height:60vh;overflow-y:auto;"></div>
+      <div class="modal-actions" style="padding:0 32px 24px;">
+        <button type="button" class="btn btn-ghost" id="evalDetailClose">关闭</button>
       </div>
     </div>
   </div>

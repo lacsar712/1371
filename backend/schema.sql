@@ -132,3 +132,19 @@ CREATE INDEX IF NOT EXISTS idx_schedule_course ON schedule(course_id);
 CREATE INDEX IF NOT EXISTS idx_schedule_classroom ON schedule(classroom_id);
 CREATE INDEX IF NOT EXISTS idx_schedule_day ON schedule(day_of_week);
 CREATE INDEX IF NOT EXISTS idx_schedule_semester ON schedule(semester_id);
+
+CREATE TABLE IF NOT EXISTS course_evaluation (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  student_id INTEGER NOT NULL,
+  course_id INTEGER NOT NULL,
+  rating INTEGER NOT NULL CHECK(rating >= 1 AND rating <= 5),
+  comment TEXT DEFAULT '',
+  is_anonymous INTEGER NOT NULL DEFAULT 0,
+  created_at TEXT DEFAULT (datetime('now', 'localtime')),
+  UNIQUE(student_id, course_id),
+  FOREIGN KEY (student_id) REFERENCES student(id),
+  FOREIGN KEY (course_id) REFERENCES course(id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_eval_student ON course_evaluation(student_id);
+CREATE INDEX IF NOT EXISTS idx_eval_course ON course_evaluation(course_id);

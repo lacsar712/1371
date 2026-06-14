@@ -28,6 +28,7 @@ const Classroom = require('./Classroom')(sequelize);
 const Schedule = require('./Schedule')(sequelize);
 const Semester = require('./Semester')(sequelize);
 const Grade = require('./Grade')(sequelize);
+const CourseEvaluation = require('./CourseEvaluation')(sequelize);
 
 Semester.hasMany(Course, { foreignKey: 'semesterId', as: 'courses' });
 Course.belongsTo(Semester, { foreignKey: 'semesterId', as: 'semester' });
@@ -71,6 +72,11 @@ Grade.belongsTo(Semester, { foreignKey: 'semesterId', as: 'semester' });
 Teacher.hasMany(Grade, { foreignKey: 'enteredBy', as: 'enteredGrades' });
 Grade.belongsTo(Teacher, { foreignKey: 'enteredBy', as: 'enteredTeacher' });
 
+Student.hasMany(CourseEvaluation, { foreignKey: 'studentId', as: 'evaluations' });
+CourseEvaluation.belongsTo(Student, { foreignKey: 'studentId', as: 'student' });
+Course.hasMany(CourseEvaluation, { foreignKey: 'courseId', as: 'evaluations' });
+CourseEvaluation.belongsTo(Course, { foreignKey: 'courseId', as: 'course' });
+
 async function getCurrentSemester() {
   return await Semester.findOne({ where: { isCurrent: true } });
 }
@@ -99,6 +105,7 @@ module.exports = {
   Schedule,
   Semester,
   Grade,
+  CourseEvaluation,
   getCurrentSemester,
   resolveSemesterId,
 };

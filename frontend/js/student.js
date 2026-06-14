@@ -3,6 +3,8 @@
   let user = null;
   let allCourses = [];
   let myCourseIds = new Set();
+  let evaluatedCourseIds = new Set();
+  let myCoursesData = [];
   let allSemesters = [];
   let currentSemesterId = null;
   let currentTab = 'courses';
@@ -10,6 +12,8 @@
   let semesterStats = [];
   let gradeSemesterFilter = null;
   let gradeLevelFilter = null;
+  let currentEvalCourseId = null;
+  let currentDrawerCourseId = null;
 
   function getStoredUser() {
     try {
@@ -31,7 +35,6 @@
     setTimeout(() => el.classList.remove('show'), 3000);
   }
 
-  /** 自定义确认弹框，返回 Promise<boolean>，不用原生 confirm */
   function showConfirm(message, title = '确认') {
     const overlay = document.getElementById('confirmOverlay');
     const messageEl = document.getElementById('confirmMessage');
@@ -89,17 +92,23 @@
               <span>${enrolled} / ${capacity} 人</span>
             </div>
             ${location ? `<div class="course-location">📍 ${escapeHtml(location)}</div>` : ''}
-            ${canEnroll
-              ? `<button type="button" class="btn btn-primary" data-id="${c.id}">选课</button>`
-              : selected
-                ? '<span style="color:var(--text-secondary);font-size:0.875rem;">已选</span>'
-                : '<span style="color:var(--danger);font-size:0.875rem;">已满</span>'}
+            <div class="course-card-actions">
+              ${canEnroll
+                ? `<button type="button" class="btn btn-primary" data-action="enroll" data-id="${c.id}">选课</button>`
+                : selected
+                  ? '<span style="color:var(--text-secondary);font-size:0.875rem;">已选</span>'
+                  : '<span style="color:var(--danger);font-size:0.875rem;">已满</span>'}
+              ${selected ? `<button type="button" class="btn btn-ghost btn-sm" data-action="detail" data-id="${c.id}">详情</button>` : ''}
+            </div>
           </div>`;
       })
       .join('');
 
-    container.querySelectorAll('.course-card .btn[data-id]').forEach((btn) => {
+    container.querySelectorAll('[data-action="enroll"]').forEach((btn) => {
       btn.addEventListener('click', () => enroll(parseInt(btn.dataset.id, 10)));
+    });
+    container.querySelectorAll('[data-action="detail"]').forEach((btn) => {
+      btn.addEventListener('click', () => openDrawer(parseInt(btn.dataset.id, 10)));
     });
   }
 
@@ -114,6 +123,7 @@
       .map(
         (c) => {
           const location = c.location || '';
+          const evaluated = evaluatedCourseIds.has(c.id);
           return `
         <div class="course-card">
           <div class="code">${escapeHtml(c.code)}</div>
@@ -122,13 +132,23 @@
             <span>${c.credit ?? 0} 学分</span>
           </div>
           ${location ? `<div class="course-location">📍 ${escapeHtml(location)}</div>` : ''}
-          <button type="button" class="btn btn-ghost" data-id="${c.id}">退课</button>
+          <div class="course-card-actions">
+            <button type="button" class="btn btn-ghost" data-action="drop" data-id="${c.id}">退课</button>
+            ${!evaluated ? `<button type="button" class="btn btn-primary btn-sm" data-action="eval" data-id="${c.id}" data-code="${escapeHtml(c.code)}" data-name="${escapeHtml(c.name)}">评教</button>` : '<span style="color:var(--success);font-size:0.8125rem;">✓ 已评教</span>'}
+            <button type="button" class="btn btn-ghost btn-sm" data-action="detail" data-id="${c.id}">详情</button>
+          </div>
         </div>`;
         }
       )
       .join('');
-    container.querySelectorAll('.btn[data-id]').forEach((btn) => {
+    container.querySelectorAll('[data-action="drop"]').forEach((btn) => {
       btn.addEventListener('click', () => drop(parseInt(btn.dataset.id, 10)));
+    });
+    container.querySelectorAll('[data-action="eval"]').forEach((btn) => {
+      btn.addEventListener('click', () => openEvalModal(parseInt(btn.dataset.id, 10), btn.dataset.code, btn.dataset.name));
+    });
+    container.querySelectorAll('[data-action="detail"]').forEach((btn) => {
+      btn.addEventListener('click', () => openDrawer(parseInt(btn.dataset.id, 10)));
     });
   }
 
@@ -380,10 +400,18 @@
     const { data } = await api('/api/students/' + user.id + '/courses' + qs);
     if (data && data.ok && Array.isArray(data.data)) {
       myCourseIds = new Set(data.data.map((c) => c.id));
+      myCoursesData = data.data;
       renderMyCourses(data.data);
     } else {
       document.getElementById('myCourses').innerHTML =
         '<p style="color:var(--text-secondary);">加载失败</p>';
+    }
+  }
+
+  async function loadEvaluatedCourses() {
+    const { data } = await api('/api/evaluations/student/' + user.id);
+    if (data && data.ok) {
+      evaluatedCourseIds = new Set(data.evaluatedCourseIds || []);
     }
   }
 
@@ -435,6 +463,174 @@
     }).join('');
   }
 
+  function openEvalModal(courseId, courseCode, courseName) {
+    currentEvalCourseId = courseId;
+    document.getElementById('evalModalTitle').textContent = '课程评教';
+    document.getElementById('evalCourseInfo').textContent = courseCode + ' · ' + courseName;
+    document.getElementById('evalRating').value = '0';
+    document.getElementById('evalComment').value = '';
+    document.getElementById('evalAnonymous').checked = false;
+    updateStarDisplay(0);
+    document.getElementById('evalModalOverlay').classList.add('show');
+  }
+
+  function closeEvalModal() {
+    document.getElementById('evalModalOverlay').classList.remove('show');
+    currentEvalCourseId = null;
+  }
+
+  function updateStarDisplay(rating) {
+    const stars = document.querySelectorAll('#evalStars .eval-star');
+    stars.forEach((star) => {
+      const val = parseInt(star.dataset.value, 10);
+      star.classList.toggle('active', val <= rating);
+    });
+  }
+
+  async function submitEvaluation() {
+    const rating = parseInt(document.getElementById('evalRating').value, 10);
+    const comment = document.getElementById('evalComment').value.trim();
+    const isAnonymous = document.getElementById('evalAnonymous').checked;
+    if (!rating || rating < 1 || rating > 5) {
+      showToast('请选择评分（1-5 星）', 'error');
+      return;
+    }
+    const { data } = await api('/api/evaluations', {
+      method: 'POST',
+      body: JSON.stringify({
+        studentId: user.id,
+        courseId: currentEvalCourseId,
+        rating,
+        comment,
+        isAnonymous,
+      }),
+    });
+    if (data && data.ok) {
+      showToast('评教提交成功', 'success');
+      closeEvalModal();
+      evaluatedCourseIds.add(currentEvalCourseId);
+      loadMyCourses();
+    } else {
+      showToast((data && data.message) || '评教提交失败', 'error');
+    }
+  }
+
+  function openDrawer(courseId) {
+    currentDrawerCourseId = courseId;
+    const course = allCourses.find((c) => c.id === courseId) || myCoursesData.find((c) => c.id === courseId);
+    if (!course) return;
+
+    document.getElementById('drawerCourseName').textContent = course.name || '课程详情';
+
+    const infoHtml = `
+      <div class="drawer-info-grid">
+        <div class="drawer-info-item"><span class="drawer-info-label">课程代码</span><span>${escapeHtml(course.code || '')}</span></div>
+        <div class="drawer-info-item"><span class="drawer-info-label">学分</span><span>${course.credit ?? 0}</span></div>
+        <div class="drawer-info-item"><span class="drawer-info-label">容量</span><span>${course.capacity ?? 0}</span></div>
+        ${course.location ? `<div class="drawer-info-item"><span class="drawer-info-label">上课地点</span><span>${escapeHtml(course.location)}</span></div>` : ''}
+      </div>`;
+    document.getElementById('drawerCourseInfo').innerHTML = infoHtml;
+
+    document.querySelectorAll('.drawer-tab').forEach((t) => {
+      t.classList.toggle('active', t.dataset.drawerTab === 'info');
+    });
+    document.getElementById('drawerTabInfo').style.display = '';
+    document.getElementById('drawerTabEval').style.display = 'none';
+
+    document.getElementById('courseDrawerOverlay').classList.add('show');
+    loadDrawerEval(courseId);
+  }
+
+  function closeDrawer() {
+    document.getElementById('courseDrawerOverlay').classList.remove('show');
+    currentDrawerCourseId = null;
+  }
+
+  async function loadDrawerEval(courseId) {
+    const content = document.getElementById('drawerEvalContent');
+    content.innerHTML = '<p style="color:var(--text-secondary);text-align:center;padding:40px 0;">加载中...</p>';
+    const { data } = await api('/api/evaluations/course/' + courseId + '/summary');
+    if (!data || !data.ok) {
+      content.innerHTML = '<p style="color:var(--danger);text-align:center;padding:40px 0;">加载失败</p>';
+      return;
+    }
+    const summary = data.data;
+    if (!summary.totalCount) {
+      content.innerHTML = '<div style="text-align:center;padding:60px 24px;color:var(--text-secondary);"><div style="font-size:3rem;margin-bottom:12px;opacity:0.3;">⭐</div>暂无评教</div>';
+      return;
+    }
+    const starsHtml = renderStarsHtml(summary.averageRating);
+    const distHtml = renderDistributionChart(summary.distribution, summary.totalCount);
+    const commentsHtml = renderCommentsList(summary.comments);
+    content.innerHTML = `
+      <div class="eval-summary-card">
+        <div class="eval-avg-row">
+          <div class="eval-avg-number">${summary.averageRating.toFixed(1)}</div>
+          <div>
+            <div class="eval-avg-stars">${starsHtml}</div>
+            <div class="eval-avg-count">${summary.totalCount} 条评教</div>
+          </div>
+        </div>
+      </div>
+      <div class="eval-dist-card">
+        <h4 class="eval-section-title">星级分布</h4>
+        ${distHtml}
+      </div>
+      <div class="eval-comments-card">
+        <h4 class="eval-section-title">评论列表</h4>
+        ${commentsHtml}
+      </div>`;
+  }
+
+  function renderStarsHtml(rating) {
+    let html = '';
+    for (let i = 1; i <= 5; i++) {
+      html += `<span class="eval-star-display ${i <= Math.round(rating) ? 'active' : ''}">★</span>`;
+    }
+    return html;
+  }
+
+  function renderDistributionChart(distribution, total) {
+    const labels = ['5 星', '4 星', '3 星', '2 星', '1 星'];
+    const keys = [5, 4, 3, 2, 1];
+    let html = '<div class="eval-dist-chart">';
+    for (let idx = 0; idx < keys.length; idx++) {
+      const key = keys[idx];
+      const count = distribution[key] || 0;
+      const pct = total > 0 ? Math.round((count / total) * 100) : 0;
+      html += `
+        <div class="eval-dist-row">
+          <span class="eval-dist-label">${labels[idx]}</span>
+          <div class="eval-dist-bar-wrap">
+            <div class="eval-dist-bar" style="width:${pct}%;"></div>
+          </div>
+          <span class="eval-dist-count">${count}</span>
+        </div>`;
+    }
+    html += '</div>';
+    return html;
+  }
+
+  function renderCommentsList(comments) {
+    if (!comments || !comments.length) return '<p style="color:var(--text-secondary);text-align:center;padding:20px 0;">暂无评论</p>';
+    let html = '<div class="eval-comments-list">';
+    for (const c of comments) {
+      const name = c.isAnonymous ? '匿名学生' : escapeHtml(c.studentName || '');
+      const time = c.createdAt ? new Date(c.createdAt).toLocaleString('zh-CN') : '';
+      html += `
+        <div class="eval-comment-item">
+          <div class="eval-comment-header">
+            <span class="eval-comment-name">${name}</span>
+            <span class="eval-comment-stars">${renderStarsHtml(c.rating)}</span>
+            <span class="eval-comment-time">${time}</span>
+          </div>
+          ${c.comment ? `<div class="eval-comment-text">${escapeHtml(c.comment)}</div>` : ''}
+        </div>`;
+    }
+    html += '</div>';
+    return html;
+  }
+
   async function initSemesterDropdown() {
     const { data } = await api('/api/semesters');
     if (data && data.ok && Array.isArray(data.data)) {
@@ -449,6 +645,55 @@
         currentSemesterId = current.id;
       }
     }
+  }
+
+  function initEvalStars() {
+    const starsContainer = document.getElementById('evalStars');
+    if (!starsContainer) return;
+    const stars = starsContainer.querySelectorAll('.eval-star');
+    stars.forEach((star) => {
+      star.addEventListener('click', () => {
+        const val = parseInt(star.dataset.value, 10);
+        document.getElementById('evalRating').value = val;
+        updateStarDisplay(val);
+      });
+      star.addEventListener('mouseenter', () => {
+        const val = parseInt(star.dataset.value, 10);
+        updateStarDisplay(val);
+      });
+    });
+    starsContainer.addEventListener('mouseleave', () => {
+      const current = parseInt(document.getElementById('evalRating').value, 10) || 0;
+      updateStarDisplay(current);
+    });
+  }
+
+  function initEvalModal() {
+    const overlay = document.getElementById('evalModalOverlay');
+    if (!overlay) return;
+    document.getElementById('evalModalCancel').addEventListener('click', closeEvalModal);
+    document.getElementById('evalModalSubmit').addEventListener('click', submitEvaluation);
+    overlay.addEventListener('click', (e) => {
+      if (e.target === overlay) closeEvalModal();
+    });
+  }
+
+  function initDrawer() {
+    const overlay = document.getElementById('courseDrawerOverlay');
+    if (!overlay) return;
+    document.getElementById('drawerCloseBtn').addEventListener('click', closeDrawer);
+    overlay.addEventListener('click', (e) => {
+      if (e.target === overlay) closeDrawer();
+    });
+    document.querySelectorAll('.drawer-tab').forEach((tab) => {
+      tab.addEventListener('click', () => {
+        document.querySelectorAll('.drawer-tab').forEach((t) => t.classList.remove('active'));
+        tab.classList.add('active');
+        const target = tab.dataset.drawerTab;
+        document.getElementById('drawerTabInfo').style.display = target === 'info' ? '' : 'none';
+        document.getElementById('drawerTabEval').style.display = target === 'eval' ? '' : 'none';
+      });
+    });
   }
 
   function init() {
@@ -503,8 +748,14 @@
       });
     }
 
+    initEvalStars();
+    initEvalModal();
+    initDrawer();
+
     initSemesterDropdown().then(() => {
-      Promise.all([loadCourses(), loadMyCourses()]);
+      loadEvaluatedCourses().then(() => {
+        Promise.all([loadCourses(), loadMyCourses()]);
+      });
     });
   }
 
