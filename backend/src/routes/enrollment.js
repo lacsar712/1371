@@ -1,7 +1,7 @@
 const express = require('express');
 const { body, param, validationResult } = require('express-validator');
 const router = express.Router();
-const { Course, Enrollment } = require('../models');
+const { Course, Enrollment, Schedule, Classroom } = require('../models');
 const logger = require('../logger');
 
 router.get('/:id/courses', param('id').isInt({ min: 1 }).withMessage('无效的学生 ID'), async (req, res) => {
@@ -11,13 +11,29 @@ router.get('/:id/courses', param('id').isInt({ min: 1 }).withMessage('无效的�
   try {
     const rows = await Enrollment.findAll({
       where: { studentId },
-      include: [{ model: Course, as: 'Course', attributes: ['id', 'code', 'name', 'credit', 'capacity'] }],
+      include: [{
+        model: Course,
+        as: 'Course',
+        attributes: ['id', 'code', 'name', 'credit', 'capacity'],
+        include: [{
+          model: Schedule,
+          as: 'schedules',
+          attributes: ['id', 'dayOfWeek', 'startPeriod', 'endPeriod'],
+          include: [{ model: Classroom, as: 'classroom', attributes: ['id', 'building', 'roomNumber'] }],
+        }],
+      }],
       order: [['enrolledAt', 'ASC']],
     });
-    const data = rows.map((r) => ({
-      ...r.Course.toJSON(),
-      enrolled_at: r.enrolledAt,
-    }));
+    const data = rows.map((r) => {
+      const obj = { ...r.Course.toJSON(), enrolled_at: r.enrolledAt };
+      obj.location = (obj.schedules || []).map((s) => {
+        const dayNames = ['', '周一', '周二', '周三', '周四', '周五', '周六', '周日'];
+        const day = dayNames[s.dayOfWeek] || '';
+        const room = s.classroom ? `${s.classroom.building} ${s.classroom.roomNumber}` : '';
+        return `${day} 第${s.startPeriod}-${s.endPeriod}节 ${room}`;
+      }).join('；');
+      return obj;
+    });
     return res.set('Content-Type', 'application/json; charset=utf-8').json({ ok: true, data });
   } catch (e) {
     logger.error('Student courses error', { error: e.message });

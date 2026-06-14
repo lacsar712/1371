@@ -1,7 +1,7 @@
 const express = require('express');
 const { Op } = require('sequelize');
 const router = express.Router();
-const { Course, Enrollment, sequelize } = require('../models');
+const { Course, Enrollment, Schedule, Classroom, sequelize } = require('../models');
 const logger = require('../logger');
 
 router.get('/', async (req, res) => {
@@ -17,6 +17,12 @@ router.get('/', async (req, res) => {
       where,
       order: [['id']],
       attributes: ['id', 'code', 'name', 'credit', 'capacity'],
+      include: [{
+        model: Schedule,
+        as: 'schedules',
+        attributes: ['id', 'dayOfWeek', 'startPeriod', 'endPeriod'],
+        include: [{ model: Classroom, as: 'classroom', attributes: ['id', 'building', 'roomNumber'] }],
+      }],
     });
     const enrollCounts = await Enrollment.findAll({
       attributes: ['courseId', [sequelize.fn('COUNT', sequelize.col('id')), 'enrolled']],
@@ -24,14 +30,17 @@ router.get('/', async (req, res) => {
       raw: true,
     });
     const countMap = Object.fromEntries(enrollCounts.map((r) => [r.courseId, Number(r.enrolled) || 0]));
-    const data = list.map((c) => ({
-      id: c.id,
-      code: c.code,
-      name: c.name,
-      credit: c.credit,
-      capacity: c.capacity,
-      enrolled: countMap[c.id] ?? 0,
-    }));
+    const data = list.map((c) => {
+      const obj = c.toJSON();
+      obj.enrolled = countMap[c.id] ?? 0;
+      obj.location = (obj.schedules || []).map((s) => {
+        const dayNames = ['', '周一', '周二', '周三', '周四', '周五', '周六', '周日'];
+        const day = dayNames[s.dayOfWeek] || '';
+        const room = s.classroom ? `${s.classroom.building} ${s.classroom.roomNumber}` : '';
+        return `${day} 第${s.startPeriod}-${s.endPeriod}节 ${room}`;
+      }).join('；');
+      return obj;
+    });
     return res.set('Content-Type', 'application/json; charset=utf-8').json({ ok: true, data });
   } catch (e) {
     logger.error('Courses list error', { error: e.message });

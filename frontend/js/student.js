@@ -72,6 +72,7 @@
         const full = capacity > 0 && enrolled >= capacity;
         const selected = myCourseIds.has(c.id);
         const canEnroll = !full && !selected;
+        const location = c.location || '';
         return `
           <div class="course-card ${canEnroll ? '' : 'disabled'}">
             <div class="code">${escapeHtml(c.code)}</div>
@@ -80,6 +81,7 @@
               <span>${c.credit ?? 0} 学分</span>
               <span>${enrolled} / ${capacity} 人</span>
             </div>
+            ${location ? `<div class="course-location">📍 ${escapeHtml(location)}</div>` : ''}
             ${canEnroll
               ? `<button type="button" class="btn btn-primary" data-id="${c.id}">选课</button>`
               : selected
@@ -103,15 +105,19 @@
     }
     container.innerHTML = courses
       .map(
-        (c) => `
+        (c) => {
+          const location = c.location || '';
+          return `
         <div class="course-card">
           <div class="code">${escapeHtml(c.code)}</div>
           <div class="name">${escapeHtml(c.name)}</div>
           <div class="meta">
             <span>${c.credit ?? 0} 学分</span>
           </div>
+          ${location ? `<div class="course-location">📍 ${escapeHtml(location)}</div>` : ''}
           <button type="button" class="btn btn-ghost" data-id="${c.id}">退课</button>
-        </div>`
+        </div>`;
+        }
       )
       .join('');
     container.querySelectorAll('.btn[data-id]').forEach((btn) => {

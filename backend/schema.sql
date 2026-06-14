@@ -88,3 +88,28 @@ CREATE TABLE IF NOT EXISTS class (
 CREATE INDEX IF NOT EXISTS idx_class_major ON class(major_id);
 
 ALTER TABLE student ADD COLUMN class_id INTEGER REFERENCES class(id);
+
+CREATE TABLE IF NOT EXISTS classroom (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  building TEXT NOT NULL,
+  room_number TEXT NOT NULL,
+  capacity INTEGER NOT NULL DEFAULT 0,
+  is_multimedia INTEGER NOT NULL DEFAULT 0
+);
+
+CREATE INDEX IF NOT EXISTS idx_classroom_building ON classroom(building);
+
+CREATE TABLE IF NOT EXISTS schedule (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  course_id INTEGER NOT NULL,
+  classroom_id INTEGER NOT NULL,
+  day_of_week INTEGER NOT NULL,
+  start_period INTEGER NOT NULL,
+  end_period INTEGER NOT NULL,
+  FOREIGN KEY (course_id) REFERENCES course(id),
+  FOREIGN KEY (classroom_id) REFERENCES classroom(id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_schedule_course ON schedule(course_id);
+CREATE INDEX IF NOT EXISTS idx_schedule_classroom ON schedule(classroom_id);
+CREATE INDEX IF NOT EXISTS idx_schedule_day ON schedule(day_of_week);

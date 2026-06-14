@@ -24,6 +24,8 @@ const CourseTeacher = require('./CourseTeacher')(sequelize);
 const College = require('./College')(sequelize);
 const Major = require('./Major')(sequelize);
 const ClassInfo = require('./ClassInfo')(sequelize);
+const Classroom = require('./Classroom')(sequelize);
+const Schedule = require('./Schedule')(sequelize);
 
 Student.hasMany(Enrollment, { foreignKey: 'studentId' });
 Enrollment.belongsTo(Student, { foreignKey: 'studentId' });
@@ -44,6 +46,11 @@ ClassInfo.belongsTo(Major, { foreignKey: 'majorId', as: 'major' });
 ClassInfo.hasMany(Student, { foreignKey: 'classId', as: 'students' });
 Student.belongsTo(ClassInfo, { foreignKey: 'classId', as: 'classInfo' });
 
+Course.hasMany(Schedule, { foreignKey: 'courseId', as: 'schedules' });
+Schedule.belongsTo(Course, { foreignKey: 'courseId', as: 'course' });
+Classroom.hasMany(Schedule, { foreignKey: 'classroomId', as: 'schedules' });
+Schedule.belongsTo(Classroom, { foreignKey: 'classroomId', as: 'classroom' });
+
 module.exports = {
   sequelize,
   Admin,
@@ -55,4 +62,6 @@ module.exports = {
   College,
   Major,
   ClassInfo,
+  Classroom,
+  Schedule,
 };

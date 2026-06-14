@@ -28,6 +28,14 @@
           <span class="nav-icon" aria-hidden="true">👨‍🏫</span>
           <span>教师管理</span>
         </a>
+        <a href="#" data-page="classrooms">
+          <span class="nav-icon" aria-hidden="true">🏫</span>
+          <span>教室管理</span>
+        </a>
+        <a href="#" data-page="scheduling">
+          <span class="nav-icon" aria-hidden="true">📅</span>
+          <span>排课中心</span>
+        </a>
       </nav>
     </aside>
     <div class="admin-main">
@@ -129,6 +137,92 @@
           </tbody>
         </table>
       </div>
+      </div>
+
+      <!-- 教室管理页面 -->
+      <div id="page-classrooms" class="admin-content" style="display:none;">
+        <section class="content-toolbar">
+          <h2 class="toolbar-title">教室列表</h2>
+          <div class="toolbar-actions">
+            <div class="search-bar" style="margin:0;">
+              <select id="buildingFilter" style="height:44px;padding:0 16px;background:rgba(255,255,255,0.04);border:1px solid var(--bg-glass-border);border-radius:10px;color:var(--text-primary);font-size:0.9375rem;cursor:pointer;appearance:none;background-image:url(&quot;data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='none' stroke='%23a1a1aa' stroke-width='2'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E&quot;);background-repeat:no-repeat;background-position:right 12px center;background-size:18px;padding-right:44px;">
+                <option value="">全部教学楼</option>
+              </select>
+              <select id="capacityFilter" style="height:44px;padding:0 16px;background:rgba(255,255,255,0.04);border:1px solid var(--bg-glass-border);border-radius:10px;color:var(--text-primary);font-size:0.9375rem;cursor:pointer;appearance:none;background-image:url(&quot;data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='none' stroke='%23a1a1aa' stroke-width='2'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E&quot;);background-repeat:no-repeat;background-position:right 12px center;background-size:18px;padding-right:44px;">
+                <option value="">全部容量</option>
+                <option value="40">≥40人</option>
+                <option value="60">≥60人</option>
+                <option value="80">≥80人</option>
+                <option value="100">≥100人</option>
+              </select>
+              <button type="button" class="btn btn-primary" id="searchClassroomBtn" style="width:auto;height:44px;padding:0 24px;">筛选</button>
+            </div>
+            <button type="button" class="btn btn-primary" id="addClassroomBtn">＋ 新增教室</button>
+          </div>
+        </section>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>ID</th>
+                <th>教学楼</th>
+                <th>房间号</th>
+                <th>容量</th>
+                <th>多媒体</th>
+                <th>操作</th>
+              </tr>
+            </thead>
+            <tbody id="classroomTableBody">
+              <tr><td colspan="6" style="text-align:center;color:var(--text-secondary);">加载中...</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- 排课中心页面 -->
+      <div id="page-scheduling" class="admin-content" style="display:none;">
+        <section class="content-toolbar">
+          <h2 class="toolbar-title">排课中心</h2>
+          <div class="toolbar-actions">
+            <span style="color:var(--text-secondary);font-size:0.875rem;">从左侧拖拽课程到网格完成排课，点击已排课程可删除</span>
+          </div>
+        </section>
+        <div class="schedule-layout">
+          <div class="schedule-sidebar">
+            <div class="tree-header">
+              <span class="tree-title">待排课程</span>
+            </div>
+            <div id="unscheduledCourses" class="schedule-course-list">
+              <p style="color:var(--text-secondary);padding:20px;text-align:center;">加载中...</p>
+            </div>
+          </div>
+          <div class="schedule-grid-panel">
+            <div class="schedule-grid-header">
+              <select id="scheduleClassroomFilter" style="height:36px;padding:0 12px;background:rgba(255,255,255,0.04);border:1px solid var(--bg-glass-border);border-radius:8px;color:var(--text-primary);font-size:0.875rem;cursor:pointer;appearance:none;background-image:url(&quot;data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='none' stroke='%23a1a1aa' stroke-width='2'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E&quot;);background-repeat:no-repeat;background-position:right 8px center;background-size:16px;padding-right:32px;">
+                <option value="">全部教室</option>
+              </select>
+              <span id="scheduleClassroomLabel" style="font-size:0.875rem;color:var(--text-secondary);"></span>
+            </div>
+            <div class="schedule-grid-wrap">
+              <table class="schedule-grid">
+                <thead>
+                  <tr>
+                    <th class="period-header">节次</th>
+                    <th>周一</th>
+                    <th>周二</th>
+                    <th>周三</th>
+                    <th>周四</th>
+                    <th>周五</th>
+                    <th>周六</th>
+                    <th>周日</th>
+                  </tr>
+                </thead>
+                <tbody id="scheduleGridBody">
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
       </div>
 
     </div>
@@ -237,6 +331,50 @@
       <div class="modal-actions confirm-actions">
         <button type="button" class="btn btn-ghost" id="orgDeleteCancel">取消</button>
         <button type="button" class="btn btn-danger" id="orgDeleteOk">确认删除</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 教室编辑弹窗 -->
+  <div id="classroomModalOverlay" class="modal-overlay">
+    <div class="modal" style="max-width:480px;">
+      <h2 id="classroomModalTitle">新增教室</h2>
+      <form id="classroomForm">
+        <input type="hidden" id="classroomId" name="id" />
+        <div class="form-group">
+          <label for="classroomBuilding">教学楼</label>
+          <input type="text" id="classroomBuilding" name="building" required placeholder="如：教学楼A" />
+        </div>
+        <div class="form-group">
+          <label for="classroomRoomNumber">房间号</label>
+          <input type="text" id="classroomRoomNumber" name="roomNumber" required placeholder="如：101" />
+        </div>
+        <div class="form-group">
+          <label for="classroomCapacity">容量</label>
+          <input type="number" id="classroomCapacity" name="capacity" min="0" required />
+        </div>
+        <div class="form-group">
+          <label style="display:flex;align-items:center;gap:10px;cursor:pointer;">
+            <input type="checkbox" id="classroomIsMultimedia" name="isMultimedia" style="width:18px;height:18px;accent-color:var(--accent-start);" />
+            <span>多媒体教室</span>
+          </label>
+        </div>
+        <div class="modal-actions">
+          <button type="button" class="btn btn-ghost" id="classroomModalCancel">取消</button>
+          <button type="submit" class="btn btn-primary">保存</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- 排课详情弹窗 -->
+  <div id="scheduleDetailOverlay" class="modal-overlay">
+    <div class="modal" style="max-width:480px;">
+      <h2>排课详情</h2>
+      <div id="scheduleDetailContent" style="padding:0 32px 32px;"></div>
+      <div class="modal-actions" style="padding:0 32px 24px;">
+        <button type="button" class="btn btn-ghost" id="scheduleDetailClose">关闭</button>
+        <button type="button" class="btn btn-danger" id="scheduleDetailDelete">删除排课</button>
       </div>
     </div>
   </div>

@@ -1,6 +1,6 @@
 const crypto = require('crypto');
 const logger = require('./logger');
-const { Admin, Student, Course, Enrollment, Teacher, CourseTeacher, College, Major, ClassInfo } = require('./models');
+const { Admin, Student, Course, Enrollment, Teacher, CourseTeacher, College, Major, ClassInfo, Classroom, Schedule } = require('./models');
 
 function hashPassword(password) {
   return crypto.createHash('sha256').update(password, 'utf8').digest('hex');
@@ -92,6 +92,20 @@ async function ensureTestAccounts() {
 
 async function seed() {
   await ensureTestAccounts();
+
+  const classroomCount = await Classroom.count();
+  if (classroomCount === 0) {
+    await Classroom.bulkCreate([
+      { building: '教学楼A', roomNumber: '101', capacity: 60, isMultimedia: true },
+      { building: '教学楼A', roomNumber: '201', capacity: 80, isMultimedia: true },
+      { building: '教学楼A', roomNumber: '301', capacity: 120, isMultimedia: true },
+      { building: '教学楼B', roomNumber: '102', capacity: 50, isMultimedia: false },
+      { building: '教学楼B', roomNumber: '202', capacity: 100, isMultimedia: true },
+      { building: '教学楼C', roomNumber: '101', capacity: 40, isMultimedia: false },
+    ]);
+    logger.info('Classrooms seeded');
+  }
+
   const courseCount = await Course.count();
   if (courseCount > 0) {
     logger.info('Seed already applied, skip');

@@ -3,6 +3,8 @@
   let user = null;
   let allCourses = [];
   let allTeachers = [];
+  let allClassrooms = [];
+  let allSchedules = [];
   let currentPage = 'courses';
 
   function getStoredUser() {
@@ -47,6 +49,8 @@
     document.getElementById('page-organization').style.display = page === 'organization' ? '' : 'none';
     document.getElementById('page-courses').style.display = page === 'courses' ? '' : 'none';
     document.getElementById('page-teachers').style.display = page === 'teachers' ? '' : 'none';
+    document.getElementById('page-classrooms').style.display = page === 'classrooms' ? '' : 'none';
+    document.getElementById('page-scheduling').style.display = page === 'scheduling' ? '' : 'none';
     const title = document.getElementById('pageTitle');
     const subtitle = document.getElementById('pageSubtitle');
     if (page === 'organization') {
@@ -57,6 +61,15 @@
       title.textContent = '课程管理';
       subtitle.textContent = '管理课程信息、容量与授课教师';
       loadCourses();
+    } else if (page === 'classrooms') {
+      title.textContent = '教室管理';
+      subtitle.textContent = '管理教学楼、教室容量与多媒体配置';
+      loadBuildings();
+      loadClassrooms();
+    } else if (page === 'scheduling') {
+      title.textContent = '排课中心';
+      subtitle.textContent = '拖拽课程到网格完成排课，实时冲突检测';
+      loadSchedulingData();
     } else {
       title.textContent = '教师管理';
       subtitle.textContent = '管理教师基本信息与所属学院';
@@ -869,6 +882,412 @@
       showToast((data && data.message) || '删除失败', 'error');
       closeOrgDelete();
     }
+  });
+
+  // ========== 教室管理 ==========
+  async function loadBuildings() {
+    const { data } = await api('/api/admin/classrooms/buildings');
+    if (data && data.ok && Array.isArray(data.data)) {
+      const select = document.getElementById('buildingFilter');
+      const currentVal = select.value;
+      select.innerHTML = '<option value="">全部教学楼</option>' +
+        data.data.map((b) => `<option value="${escapeHtml(b)}">${escapeHtml(b)}</option>`).join('');
+      select.value = currentVal;
+    }
+  }
+
+  async function loadClassrooms() {
+    const tbody = document.getElementById('classroomTableBody');
+    const building = document.getElementById('buildingFilter').value;
+    const minCapacity = document.getElementById('capacityFilter').value;
+    const params = new URLSearchParams();
+    if (building) params.set('building', building);
+    if (minCapacity) params.set('minCapacity', minCapacity);
+    const qs = params.toString();
+    const { data } = await api('/api/admin/classrooms' + (qs ? '?' + qs : ''));
+    if (!data || !data.ok || !Array.isArray(data.data)) {
+      tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;color:var(--danger);">加载失败</td></tr>';
+      return;
+    }
+    allClassrooms = data.data;
+    if (!allClassrooms.length) {
+      tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;color:var(--text-secondary);">暂无教室</td></tr>';
+      return;
+    }
+    tbody.innerHTML = allClassrooms.map((c) => `
+      <tr>
+        <td>${c.id}</td>
+        <td>${escapeHtml(c.building)}</td>
+        <td>${escapeHtml(c.roomNumber)}</td>
+        <td>${c.capacity}</td>
+        <td>${c.isMultimedia ? '<span style="color:var(--success);">✓ 是</span>' : '<span style="color:var(--text-secondary);">—</span>'}</td>
+        <td>
+          <button type="button" class="btn btn-ghost btn-sm edit-classroom-btn" data-id="${c.id}">编辑</button>
+          <button type="button" class="btn btn-danger btn-sm delete-classroom-btn" data-id="${c.id}">删除</button>
+        </td>
+      </tr>`
+    ).join('');
+    tbody.querySelectorAll('.edit-classroom-btn').forEach((btn) => {
+      btn.addEventListener('click', () => openClassroomEdit(parseInt(btn.dataset.id, 10)));
+    });
+    tbody.querySelectorAll('.delete-classroom-btn').forEach((btn) => {
+      btn.addEventListener('click', () => deleteClassroom(parseInt(btn.dataset.id, 10)));
+    });
+  }
+
+  const classroomModal = document.getElementById('classroomModalOverlay');
+  const classroomForm = document.getElementById('classroomForm');
+  const classroomModalTitle = document.getElementById('classroomModalTitle');
+
+  function openClassroomAdd() {
+    document.getElementById('classroomId').value = '';
+    document.getElementById('classroomBuilding').value = '';
+    document.getElementById('classroomRoomNumber').value = '';
+    document.getElementById('classroomCapacity').value = '';
+    document.getElementById('classroomIsMultimedia').checked = false;
+    classroomModalTitle.textContent = '新增教室';
+    classroomModal.classList.remove('modal-editing');
+    classroomModal.classList.add('show');
+  }
+
+  function openClassroomEdit(id) {
+    const c = allClassrooms.find((x) => x.id === id);
+    if (!c) return;
+    document.getElementById('classroomId').value = id;
+    document.getElementById('classroomBuilding').value = c.building;
+    document.getElementById('classroomRoomNumber').value = c.roomNumber;
+    document.getElementById('classroomCapacity').value = c.capacity;
+    document.getElementById('classroomIsMultimedia').checked = c.isMultimedia;
+    classroomModalTitle.textContent = '编辑教室';
+    classroomModal.classList.add('modal-editing', 'show');
+  }
+
+  function closeClassroomModal() {
+    classroomModal.classList.remove('show');
+  }
+
+  async function deleteClassroom(id) {
+    if (!confirm('确定删除该教室？关联的排课记录也将一并删除。')) return;
+    const { data } = await api('/api/admin/classrooms/' + id, { method: 'DELETE' });
+    if (data && data.ok) {
+      showToast('已删除', 'success');
+      loadBuildings();
+      loadClassrooms();
+    } else {
+      showToast((data && data.message) || '删除失败', 'error');
+    }
+  }
+
+  classroomForm.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const id = document.getElementById('classroomId').value.trim();
+    const building = document.getElementById('classroomBuilding').value.trim();
+    const roomNumber = document.getElementById('classroomRoomNumber').value.trim();
+    const capacity = parseInt(document.getElementById('classroomCapacity').value, 10);
+    const isMultimedia = document.getElementById('classroomIsMultimedia').checked;
+    if (!building || !roomNumber || Number.isNaN(capacity) || capacity < 0) {
+      showToast('请填写完整且有效的字段', 'error');
+      return;
+    }
+    const payload = { building, roomNumber, capacity, isMultimedia };
+    if (id) {
+      const { data } = await api('/api/admin/classrooms/' + id, {
+        method: 'PUT',
+        body: JSON.stringify(payload),
+      });
+      if (data && data.ok) {
+        showToast('保存成功', 'success');
+        closeClassroomModal();
+        loadBuildings();
+        loadClassrooms();
+      } else {
+        showToast((data && data.message) || '保存失败', 'error');
+      }
+    } else {
+      const { data } = await api('/api/admin/classrooms', {
+        method: 'POST',
+        body: JSON.stringify(payload),
+      });
+      if (data && data.ok) {
+        showToast('新增成功', 'success');
+        closeClassroomModal();
+        loadBuildings();
+        loadClassrooms();
+      } else {
+        showToast((data && data.message) || '新增失败', 'error');
+      }
+    }
+  });
+
+  document.getElementById('classroomModalCancel').addEventListener('click', closeClassroomModal);
+  classroomModal.addEventListener('click', (e) => {
+    if (e.target === classroomModal) closeClassroomModal();
+  });
+  document.getElementById('addClassroomBtn').addEventListener('click', openClassroomAdd);
+  document.getElementById('searchClassroomBtn').addEventListener('click', loadClassrooms);
+  document.getElementById('buildingFilter').addEventListener('change', loadClassrooms);
+  document.getElementById('capacityFilter').addEventListener('change', loadClassrooms);
+
+  // ========== 排课中心 ==========
+  let scheduleDragData = null;
+  let currentScheduleDetailId = null;
+
+  const DAY_NAMES = ['', '周一', '周二', '周三', '周四', '周五', '周六', '周日'];
+
+  async function loadSchedulingData() {
+    const [coursesRes, classroomsRes, schedulesRes] = await Promise.all([
+      api('/api/admin/courses'),
+      api('/api/admin/classrooms'),
+      api('/api/admin/schedules'),
+    ]);
+    allCourses = (coursesRes.data && coursesRes.data.ok && coursesRes.data.data) || [];
+    allClassrooms = (classroomsRes.data && classroomsRes.data.ok && classroomsRes.data.data) || [];
+    allSchedules = (schedulesRes.data && schedulesRes.data.ok && schedulesRes.data.data) || [];
+
+    const scheduleClassroomFilter = document.getElementById('scheduleClassroomFilter');
+    scheduleClassroomFilter.innerHTML = '<option value="">全部教室</option>' +
+      allClassrooms.map((c) => `<option value="${c.id}">${escapeHtml(c.building)} ${escapeHtml(c.roomNumber)} (${c.capacity}人)</option>`).join('');
+
+    renderUnscheduledCourses();
+    renderScheduleGrid();
+  }
+
+  function getScheduledCourseIds() {
+    return new Set(allSchedules.map((s) => s.courseId));
+  }
+
+  function renderUnscheduledCourses() {
+    const container = document.getElementById('unscheduledCourses');
+    const scheduledIds = getScheduledCourseIds();
+    const unscheduled = allCourses.filter((c) => !scheduledIds.has(c.id));
+    if (!unscheduled.length) {
+      container.innerHTML = '<p style="color:var(--text-secondary);padding:20px;text-align:center;">所有课程已排完</p>';
+      return;
+    }
+    container.innerHTML = unscheduled.map((c) => `
+      <div class="schedule-course-item" draggable="true" data-course-id="${c.id}" data-course-name="${escapeHtml(c.name)}" data-course-capacity="${c.capacity}">
+        <div class="schedule-course-code">${escapeHtml(c.code)}</div>
+        <div class="schedule-course-name">${escapeHtml(c.name)}</div>
+        <div class="schedule-course-capacity">${c.capacity}人</div>
+      </div>
+    `).join('');
+
+    container.querySelectorAll('.schedule-course-item').forEach((item) => {
+      item.addEventListener('dragstart', (e) => {
+        scheduleDragData = {
+          courseId: parseInt(item.dataset.courseId, 10),
+          courseName: item.dataset.courseName,
+          courseCapacity: parseInt(item.dataset.courseCapacity, 10),
+        };
+        e.dataTransfer.effectAllowed = 'copy';
+        item.classList.add('dragging');
+      });
+      item.addEventListener('dragend', () => {
+        item.classList.remove('dragging');
+        scheduleDragData = null;
+        clearGridHighlights();
+      });
+    });
+  }
+
+  function renderScheduleGrid() {
+    const tbody = document.getElementById('scheduleGridBody');
+    const selectedClassroom = document.getElementById('scheduleClassroomFilter').value;
+    const filteredSchedules = selectedClassroom
+      ? allSchedules.filter((s) => s.classroomId === parseInt(selectedClassroom, 10))
+      : allSchedules;
+
+    let html = '';
+    for (let period = 1; period <= 12; period++) {
+      html += '<tr>';
+      html += `<td class="period-label">第${period}节</td>`;
+      for (let day = 1; day <= 7; day++) {
+        const schedule = filteredSchedules.find((s) => s.dayOfWeek === day && s.startPeriod <= period && s.endPeriod >= period);
+        if (schedule && schedule.startPeriod === period) {
+          const rowspan = schedule.endPeriod - schedule.startPeriod + 1;
+          const isConflict = schedule.capacityWarning;
+          html += `<td class="schedule-cell has-schedule${isConflict ? ' capacity-warning' : ''}" rowspan="${rowspan}" data-schedule-id="${schedule.id}" data-day="${day}" data-period="${period}">`;
+          html += `<div class="schedule-block${isConflict ? ' warning' : ''}">`;
+          html += `<div class="schedule-block-name">${escapeHtml(schedule.course ? schedule.course.name : '')}</div>`;
+          html += `<div class="schedule-block-room">${schedule.classroom ? escapeHtml(schedule.classroom.building + ' ' + schedule.classroom.roomNumber) : ''}</div>`;
+          if (isConflict) html += `<div class="schedule-block-warning">⚠ 容量不足</div>`;
+          html += '</div></td>';
+        } else if (!schedule || period > schedule.endPeriod || period < schedule.startPeriod) {
+          html += `<td class="schedule-cell" data-day="${day}" data-period="${period}"></td>`;
+        }
+      }
+      html += '</tr>';
+    }
+    tbody.innerHTML = html;
+    bindGridEvents();
+  }
+
+  function clearGridHighlights() {
+    document.querySelectorAll('.schedule-cell.conflict-highlight, .schedule-cell.drop-ok, .schedule-cell.capacity-warn').forEach((cell) => {
+      cell.classList.remove('conflict-highlight', 'drop-ok', 'capacity-warn');
+    });
+  }
+
+  function bindGridEvents() {
+    document.querySelectorAll('.schedule-cell').forEach((cell) => {
+      cell.addEventListener('dragover', (e) => {
+        if (!scheduleDragData) return;
+        e.preventDefault();
+        e.dataTransfer.dropEffect = 'copy';
+
+        const day = parseInt(cell.dataset.day, 10);
+        const startPeriod = parseInt(cell.dataset.period, 10);
+        const endPeriod = Math.min(startPeriod + 1, 12);
+        const classroomId = parseInt(document.getElementById('scheduleClassroomFilter').value, 10);
+
+        if (!classroomId) {
+          cell.classList.add('conflict-highlight');
+          return;
+        }
+
+        const conflict = allSchedules.some((s) => {
+          if (s.classroomId !== classroomId) return false;
+          if (s.dayOfWeek !== day) return false;
+          return s.startPeriod <= endPeriod && startPeriod <= s.endPeriod;
+        });
+
+        clearGridHighlights();
+
+        if (conflict) {
+          cell.classList.add('conflict-highlight');
+        } else {
+          const classroom = allClassrooms.find((c) => c.id === classroomId);
+          if (classroom && classroom.capacity < scheduleDragData.courseCapacity) {
+            cell.classList.add('capacity-warn');
+          } else {
+            cell.classList.add('drop-ok');
+          }
+        }
+      });
+
+      cell.addEventListener('dragleave', () => {
+        cell.classList.remove('conflict-highlight', 'drop-ok', 'capacity-warn');
+      });
+
+      cell.addEventListener('drop', async (e) => {
+        e.preventDefault();
+        clearGridHighlights();
+        if (!scheduleDragData) return;
+
+        const day = parseInt(cell.dataset.day, 10);
+        const startPeriod = parseInt(cell.dataset.period, 10);
+        const endPeriod = Math.min(startPeriod + 1, 12);
+        const classroomId = parseInt(document.getElementById('scheduleClassroomFilter').value, 10);
+
+        if (!classroomId) {
+          showToast('请先在上方选择一个教室', 'error');
+          return;
+        }
+
+        const conflict = allSchedules.some((s) => {
+          if (s.classroomId !== classroomId) return false;
+          if (s.dayOfWeek !== day) return false;
+          return s.startPeriod <= endPeriod && startPeriod <= s.endPeriod;
+        });
+
+        if (conflict) {
+          showToast('该教室在此时段已有排课，存在冲突', 'error');
+          return;
+        }
+
+        const classroom = allClassrooms.find((c) => c.id === classroomId);
+        if (classroom && classroom.capacity < scheduleDragData.courseCapacity) {
+          const ok = confirm(`教室容量(${classroom.capacity}人)小于课程容量(${scheduleDragData.courseCapacity}人)，是否继续排课？`);
+          if (!ok) return;
+        }
+
+        const payload = {
+          courseId: scheduleDragData.courseId,
+          classroomId,
+          dayOfWeek: day,
+          startPeriod,
+          endPeriod,
+        };
+
+        const { data } = await api('/api/admin/schedules', {
+          method: 'POST',
+          body: JSON.stringify(payload),
+        });
+        if (data && data.ok) {
+          showToast('排课成功', 'success');
+          await loadSchedulingData();
+        } else {
+          showToast((data && data.message) || '排课失败', 'error');
+        }
+        scheduleDragData = null;
+      });
+
+      cell.addEventListener('click', () => {
+        const scheduleId = cell.dataset.scheduleId;
+        if (!scheduleId) return;
+        openScheduleDetail(parseInt(scheduleId, 10));
+      });
+    });
+  }
+
+  function openScheduleDetail(id) {
+    const schedule = allSchedules.find((s) => s.id === id);
+    if (!schedule) return;
+    currentScheduleDetailId = id;
+    const content = document.getElementById('scheduleDetailContent');
+    const dayName = DAY_NAMES[schedule.dayOfWeek] || '';
+    const courseName = schedule.course ? schedule.course.name : '';
+    const classroomName = schedule.classroom ? `${schedule.classroom.building} ${schedule.classroom.roomNumber}` : '';
+    const capacityInfo = schedule.classroom
+      ? `教室容量: ${schedule.classroom.capacity}人 / 课程容量: ${schedule.course ? schedule.course.capacity : 0}人`
+      : '';
+    content.innerHTML = `
+      <div style="margin-bottom:16px;">
+        <div style="font-size:1.125rem;font-weight:600;margin-bottom:8px;">${escapeHtml(courseName)}</div>
+        <div style="color:var(--text-secondary);font-size:0.9375rem;">${dayName} 第${schedule.startPeriod}-${schedule.endPeriod}节</div>
+        <div style="color:var(--text-secondary);font-size:0.9375rem;margin-top:4px;">上课地点：${escapeHtml(classroomName)}</div>
+        <div style="color:var(--text-secondary);font-size:0.875rem;margin-top:4px;">${capacityInfo}</div>
+      </div>
+    `;
+    document.getElementById('scheduleDetailOverlay').classList.add('show');
+  }
+
+  document.getElementById('scheduleDetailClose').addEventListener('click', () => {
+    document.getElementById('scheduleDetailOverlay').classList.remove('show');
+    currentScheduleDetailId = null;
+  });
+  document.getElementById('scheduleDetailOverlay').addEventListener('click', (e) => {
+    if (e.target === document.getElementById('scheduleDetailOverlay')) {
+      document.getElementById('scheduleDetailOverlay').classList.remove('show');
+      currentScheduleDetailId = null;
+    }
+  });
+  document.getElementById('scheduleDetailDelete').addEventListener('click', async () => {
+    if (!currentScheduleDetailId) return;
+    if (!confirm('确定删除该排课记录？')) return;
+    const { data } = await api('/api/admin/schedules/' + currentScheduleDetailId, { method: 'DELETE' });
+    if (data && data.ok) {
+      showToast('已删除排课', 'success');
+      document.getElementById('scheduleDetailOverlay').classList.remove('show');
+      currentScheduleDetailId = null;
+      await loadSchedulingData();
+    } else {
+      showToast((data && data.message) || '删除失败', 'error');
+    }
+  });
+
+  document.getElementById('scheduleClassroomFilter').addEventListener('change', () => {
+    const selected = document.getElementById('scheduleClassroomFilter').value;
+    const label = document.getElementById('scheduleClassroomLabel');
+    if (selected) {
+      const classroom = allClassrooms.find((c) => c.id === parseInt(selected, 10));
+      if (classroom) {
+        label.textContent = `${classroom.building} ${classroom.roomNumber} · 容量${classroom.capacity}人${classroom.isMultimedia ? ' · 多媒体' : ''}`;
+      }
+    } else {
+      label.textContent = '';
+    }
+    renderScheduleGrid();
   });
 
   // ========== 导航绑定 ==========
