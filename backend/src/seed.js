@@ -1,6 +1,6 @@
 const crypto = require('crypto');
 const logger = require('./logger');
-const { Admin, Student, Course, Enrollment } = require('./models');
+const { Admin, Student, Course, Enrollment, Teacher, CourseTeacher } = require('./models');
 
 function hashPassword(password) {
   return crypto.createHash('sha256').update(password, 'utf8').digest('hex');
@@ -31,6 +31,20 @@ async function ensureTestAccounts() {
       await student.update({ passwordHash: TEST_PASSWORD_HASH, name: s.name });
     }
   }
+  const testTeachers = [
+    { teacherNo: 'T2024001', name: '李教授', title: '教授', college: '计算机学院' },
+    { teacherNo: 'T2024002', name: '王副教授', title: '副教授', college: '计算机学院' },
+    { teacherNo: 'T2024003', name: '张讲师', title: '讲师', college: '数学学院' },
+  ];
+  for (const t of testTeachers) {
+    const [teacher, created] = await Teacher.findOrCreate({
+      where: { teacherNo: t.teacherNo },
+      defaults: { name: t.name, title: t.title, college: t.college, passwordHash: TEST_PASSWORD_HASH },
+    });
+    if (!created && teacher.passwordHash !== TEST_PASSWORD_HASH) {
+      await teacher.update({ passwordHash: TEST_PASSWORD_HASH, name: t.name, title: t.title, college: t.college });
+    }
+  }
   logger.info('Test accounts ensured');
 }
 
@@ -41,7 +55,7 @@ async function seed() {
     logger.info('Seed already applied, skip');
     return;
   }
-  await Course.bulkCreate([
+  const courses = await Course.bulkCreate([
     { code: 'CS101', name: '数据结构', credit: 4, capacity: 60 },
     { code: 'CS102', name: '计算机网络', credit: 3, capacity: 50 },
     { code: 'CS103', name: '操作系统', credit: 4, capacity: 55 },
@@ -53,6 +67,17 @@ async function seed() {
     { studentId: 1, courseId: 2 },
     { studentId: 2, courseId: 1 },
   ]);
+  const teachers = await Teacher.findAll();
+  const teacherMap = Object.fromEntries(teachers.map((t) => [t.teacherNo, t.id]));
+  if (courses.length >= 5 && teacherMap['T2024001'] && teacherMap['T2024002'] && teacherMap['T2024003']) {
+    await CourseTeacher.bulkCreate([
+      { courseId: courses[0].id, teacherId: teacherMap['T2024001'] },
+      { courseId: courses[0].id, teacherId: teacherMap['T2024002'] },
+      { courseId: courses[1].id, teacherId: teacherMap['T2024002'] },
+      { courseId: courses[2].id, teacherId: teacherMap['T2024001'] },
+      { courseId: courses[3].id, teacherId: teacherMap['T2024003'] },
+    ]);
+  }
   logger.info('Seed completed');
 }
 

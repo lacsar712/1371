@@ -20,17 +20,23 @@
           <span class="nav-icon" aria-hidden="true">📋</span>
           <span>课程管理</span>
         </a>
+        <a href="#" data-page="teachers">
+          <span class="nav-icon" aria-hidden="true">👨‍🏫</span>
+          <span>教师管理</span>
+        </a>
       </nav>
     </aside>
     <div class="admin-main">
       <header class="admin-header">
         <div class="header-inner">
-          <h1>课程管理</h1>
-          <p class="header-subtitle">管理课程信息与容量</p>
+          <h1 id="pageTitle">课程管理</h1>
+          <p id="pageSubtitle" class="header-subtitle">管理课程信息与容量</p>
         </div>
         <a href="index.html" class="btn btn-ghost btn-sm" id="logoutBtn" role="button">退出登录</a>
       </header>
-      <div class="admin-content">
+
+      <!-- 课程管理页面 -->
+      <div id="page-courses" class="admin-content">
         <section class="content-toolbar">
           <h2 class="toolbar-title">课程列表</h2>
           <div class="toolbar-actions">
@@ -47,21 +53,58 @@
               <th>学分</th>
               <th>容量</th>
               <th>已选</th>
+              <th>授课教师</th>
               <th>操作</th>
             </tr>
           </thead>
           <tbody id="courseTableBody">
-            <tr><td colspan="7" style="text-align:center;color:var(--text-secondary);">加载中...</td></tr>
+            <tr><td colspan="8" style="text-align:center;color:var(--text-secondary);">加载中...</td></tr>
           </tbody>
         </table>
       </div>
       </div>
+
+      <!-- 教师管理页面 -->
+      <div id="page-teachers" class="admin-content" style="display:none;">
+        <section class="content-toolbar">
+          <h2 class="toolbar-title">教师列表</h2>
+          <div class="toolbar-actions">
+            <div class="search-bar" style="margin:0;">
+              <select id="collegeFilter" style="height:44px;padding:0 16px;background:rgba(255,255,255,0.04);border:1px solid var(--bg-glass-border);border-radius:10px;color:var(--text-primary);font-size:0.9375rem;cursor:pointer;appearance:none;background-image:url(&quot;data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='none' stroke='%23a1a1aa' stroke-width='2'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E&quot;);background-repeat:no-repeat;background-position:right 12px center;background-size:18px;padding-right:44px;">
+                <option value="">全部学院</option>
+              </select>
+              <input type="text" id="teacherKeyword" placeholder="搜索工号或姓名" />
+              <button type="button" class="btn btn-primary" id="searchTeacherBtn" style="width:auto;height:44px;padding:0 24px;">搜索</button>
+            </div>
+            <button type="button" class="btn btn-primary" id="addTeacherBtn">＋ 新增教师</button>
+          </div>
+        </section>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>ID</th>
+              <th>工号</th>
+              <th>姓名</th>
+              <th>职称</th>
+              <th>所属学院</th>
+              <th>操作</th>
+            </tr>
+          </thead>
+          <tbody id="teacherTableBody">
+            <tr><td colspan="6" style="text-align:center;color:var(--text-secondary);">加载中...</td></tr>
+          </tbody>
+        </table>
+      </div>
+      </div>
+
     </div>
   </div>
 
-  <div id="modalOverlay" class="modal-overlay">
-    <div class="modal">
-      <h2 id="modalTitle">新增课程</h2>
+  <!-- 课程编辑弹窗 -->
+  <div id="courseModalOverlay" class="modal-overlay">
+    <div class="modal" style="max-width:520px;">
+      <h2 id="courseModalTitle">新增课程</h2>
       <form id="courseForm">
         <input type="hidden" id="courseId" name="id" />
         <div class="form-group">
@@ -80,8 +123,48 @@
           <label for="capacity">容量</label>
           <input type="number" id="capacity" name="capacity" min="0" required />
         </div>
+        <div class="form-group">
+          <label>授课教师（可多选）</label>
+          <div id="teacherCheckboxes" style="max-height:200px;overflow-y:auto;padding:12px;background:rgba(255,255,255,0.04);border:1px solid var(--bg-glass-border);border-radius:10px;">
+            <p style="color:var(--text-secondary);font-size:0.875rem;">暂无教师，请先在「教师管理」中添加</p>
+          </div>
+        </div>
         <div class="modal-actions">
-          <button type="button" class="btn btn-ghost" id="modalCancel">取消</button>
+          <button type="button" class="btn btn-ghost" id="courseModalCancel">取消</button>
+          <button type="submit" class="btn btn-primary">保存</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- 教师编辑弹窗 -->
+  <div id="teacherModalOverlay" class="modal-overlay">
+    <div class="modal">
+      <h2 id="teacherModalTitle">新增教师</h2>
+      <form id="teacherForm">
+        <input type="hidden" id="teacherId" name="id" />
+        <div class="form-group">
+          <label for="teacherNo">工号</label>
+          <input type="text" id="teacherNo" name="teacherNo" required />
+        </div>
+        <div class="form-group">
+          <label for="teacherName">姓名</label>
+          <input type="text" id="teacherName" name="teacherName" required />
+        </div>
+        <div class="form-group">
+          <label for="teacherTitle">职称</label>
+          <input type="text" id="teacherTitle" name="teacherTitle" placeholder="如：教授、副教授、讲师" />
+        </div>
+        <div class="form-group">
+          <label for="teacherCollege">所属学院</label>
+          <input type="text" id="teacherCollege" name="teacherCollege" placeholder="如：计算机学院" />
+        </div>
+        <div class="form-group" id="teacherPasswordGroup">
+          <label for="teacherPassword">登录密码</label>
+          <input type="text" id="teacherPassword" name="teacherPassword" placeholder="编辑时留空则不修改" />
+        </div>
+        <div class="modal-actions">
+          <button type="button" class="btn btn-ghost" id="teacherModalCancel">取消</button>
           <button type="submit" class="btn btn-primary">保存</button>
         </div>
       </form>

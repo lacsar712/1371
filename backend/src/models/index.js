@@ -22,11 +22,20 @@ const Admin = require('./Admin')(sequelize);
 const Student = require('./Student')(sequelize);
 const Course = require('./Course')(sequelize);
 const Enrollment = require('./Enrollment')(sequelize);
+const Teacher = require('./Teacher')(sequelize);
+const CourseTeacher = require('./CourseTeacher')(sequelize);
 
 Student.hasMany(Enrollment, { foreignKey: 'studentId' });
 Enrollment.belongsTo(Student, { foreignKey: 'studentId' });
 Course.hasMany(Enrollment, { foreignKey: 'courseId' });
 Enrollment.belongsTo(Course, { foreignKey: 'courseId' });
+
+Course.belongsToMany(Teacher, { through: CourseTeacher, foreignKey: 'courseId', otherKey: 'teacherId', as: 'teachers' });
+Teacher.belongsToMany(Course, { through: CourseTeacher, foreignKey: 'teacherId', otherKey: 'courseId', as: 'courses' });
+Course.hasMany(CourseTeacher, { foreignKey: 'courseId' });
+CourseTeacher.belongsTo(Course, { foreignKey: 'courseId' });
+Teacher.hasMany(CourseTeacher, { foreignKey: 'teacherId' });
+CourseTeacher.belongsTo(Teacher, { foreignKey: 'teacherId' });
 
 module.exports = {
   sequelize,
@@ -34,4 +43,6 @@ module.exports = {
   Student,
   Course,
   Enrollment,
+  Teacher,
+  CourseTeacher,
 };

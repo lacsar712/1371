@@ -9,6 +9,24 @@
     setTimeout(() => el.classList.remove('show'), 3000);
   }
 
+  function updateUsernameLabel() {
+    const role = document.getElementById('role').value;
+    const label = document.getElementById('usernameLabel');
+    if (!label) return;
+    if (role === 'admin') {
+      label.textContent = '用户名';
+    } else if (role === 'teacher') {
+      label.textContent = '工号';
+    } else if (role === 'student') {
+      label.textContent = '学号';
+    } else {
+      label.textContent = '用户名 / 学号 / 工号';
+    }
+  }
+
+  document.getElementById('role').addEventListener('change', updateUsernameLabel);
+  updateUsernameLabel();
+
   document.getElementById('loginForm').addEventListener('submit', async (e) => {
     e.preventDefault();
     const username = document.getElementById('username').value.trim();
@@ -34,14 +52,13 @@
       try {
         data = text ? JSON.parse(text) : {};
       } catch (_) {
-        // 响应不是 JSON（如 nginx 错误页）
         showToast(res.status === 404 ? '无法连接登录服务，请确认已通过正确地址访问（如 http://localhost:31371）' : '登录服务返回异常，请重试', 'error');
         btn.disabled = false;
         btn.textContent = '登录';
         return;
       }
       if (!res.ok) {
-        const msg = data.message || (res.status === 404 ? '无法连接登录服务' : res.status === 401 ? '用户名/学号或密码错误' : '登录失败(HTTP ' + res.status + ')');
+        const msg = data.message || (res.status === 404 ? '无法连接登录服务' : res.status === 401 ? '账号或密码错误' : '登录失败(HTTP ' + res.status + ')');
         showToast(msg, 'error');
         btn.disabled = false;
         btn.textContent = '登录';
@@ -58,6 +75,8 @@
       sessionStorage.setItem('user', JSON.stringify(data.data));
       if (data.data.role === 'admin') {
         window.location.href = 'admin.html';
+      } else if (data.data.role === 'teacher') {
+        window.location.href = 'teacher.html';
       } else {
         window.location.href = 'student.html';
       }

@@ -38,3 +38,25 @@ CREATE TABLE IF NOT EXISTS enrollment (
 
 CREATE INDEX IF NOT EXISTS idx_enrollment_student ON enrollment(student_id);
 CREATE INDEX IF NOT EXISTS idx_enrollment_course ON enrollment(course_id);
+
+CREATE TABLE IF NOT EXISTS teacher (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  teacher_no TEXT NOT NULL UNIQUE,
+  name TEXT NOT NULL,
+  password_hash TEXT NOT NULL,
+  title TEXT,
+  college TEXT,
+  created_at TEXT DEFAULT (datetime('now', 'localtime'))
+);
+
+CREATE TABLE IF NOT EXISTS course_teacher (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  course_id INTEGER NOT NULL,
+  teacher_id INTEGER NOT NULL,
+  UNIQUE(course_id, teacher_id),
+  FOREIGN KEY (course_id) REFERENCES course(id),
+  FOREIGN KEY (teacher_id) REFERENCES teacher(id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_course_teacher_course ON course_teacher(course_id);
+CREATE INDEX IF NOT EXISTS idx_course_teacher_teacher ON course_teacher(teacher_id);
