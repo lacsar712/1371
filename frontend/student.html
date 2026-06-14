@@ -10,11 +10,15 @@
   <div class="bg-mesh"></div>
   <header class="student-header page-enter">
     <div>
-      <h1>课程中心</h1>
+      <h1 id="pageTitle">课程中心</h1>
       <div id="studentBreadcrumb" class="student-breadcrumb"></div>
     </div>
     <div class="header-actions">
-      <div class="semester-selector">
+      <div class="student-tabs">
+        <button type="button" class="student-tab active" data-tab="courses">课程中心</button>
+        <button type="button" class="student-tab" data-tab="grades">我的成绩</button>
+      </div>
+      <div class="semester-selector" id="coursesSemesterSelector">
         <label for="studentSemesterSelect" class="semester-selector-label">学期</label>
         <select id="studentSemesterSelect" class="semester-select">
           <option value="">加载中...</option>
@@ -25,6 +29,7 @@
     </div>
   </header>
   <main class="student-main page-enter">
+    <div id="coursesView">
     <section>
       <h2 class="section-title">可选课程</h2>
       <div class="search-bar">
@@ -43,6 +48,79 @@
         <div class="skeleton skeleton-card"></div>
       </div>
     </section>
+    </div>
+
+    <div id="gradesView" style="display:none;">
+      <section class="gpa-card-section">
+        <div class="gpa-card">
+          <div class="gpa-card-left">
+            <div class="gpa-label">平均绩点 (GPA)</div>
+            <div class="gpa-value" id="gpaValue">0.00</div>
+            <div class="gpa-meta">
+              <span id="gpaCredits">已修 0 学分</span>
+              <span id="gpaCourses">共 0 门课程</span>
+            </div>
+          </div>
+          <div class="gpa-card-right">
+            <div class="gpa-chart" id="gpaChart">
+              <svg viewBox="0 0 120 120" class="gpa-ring">
+                <circle cx="60" cy="60" r="52" class="gpa-ring-bg" />
+                <circle cx="60" cy="60" r="52" class="gpa-ring-progress" id="gpaRingProgress" />
+              </svg>
+              <div class="gpa-ring-center">
+                <span id="gpaRingText">0</span>
+                <span class="gpa-ring-unit">/ 4.0</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="chart-section">
+        <div class="chart-card">
+          <div class="chart-header">
+            <h3 class="chart-title">学期成绩趋势</h3>
+            <div class="chart-legend">
+              <span class="chart-legend-item"><span class="legend-dot legend-gpa"></span>平均绩点</span>
+              <span class="chart-legend-item"><span class="legend-dot legend-score"></span>平均分</span>
+            </div>
+          </div>
+          <div class="chart-container" id="semesterChartContainer">
+            <svg id="semesterChart" class="line-chart-svg" viewBox="0 0 700 280" preserveAspectRatio="xMidYMid meet"></svg>
+          </div>
+        </div>
+      </section>
+
+      <section>
+        <div class="grades-filter-bar">
+          <h2 class="section-title" style="margin:0;">成绩列表</h2>
+          <div class="filter-actions">
+            <div class="filter-item">
+              <label class="filter-label">学期</label>
+              <select id="gradeSemesterFilter" class="filter-select">
+                <option value="">全部学期</option>
+              </select>
+            </div>
+            <div class="filter-item">
+              <label class="filter-label">等级</label>
+              <select id="gradeLevelFilter" class="filter-select">
+                <option value="">全部等级</option>
+                <option value="A">A (优秀)</option>
+                <option value="B">B (良好)</option>
+                <option value="C">C (中等)</option>
+                <option value="D">D (及格)</option>
+                <option value="F">F (不及格)</option>
+              </select>
+            </div>
+          </div>
+        </div>
+        <div class="grades-list" id="gradesList">
+          <div class="grade-skeleton"></div>
+          <div class="grade-skeleton"></div>
+          <div class="grade-skeleton"></div>
+        </div>
+      </section>
+    </div>
   </main>
   <div id="toast" class="toast" role="alert" aria-live="polite"></div>
   <!-- 退课确认弹框（非原生） -->

@@ -23,6 +23,19 @@
           <span>加载中...</span>
         </a>
       </nav>
+      <div style="padding:0 24px 20px;margin:16px 12px 0;border-top:1px solid rgba(255,255,255,0.08);">
+        <div class="sidebar-section-title">功能</div>
+      </div>
+      <nav class="sidebar-nav">
+        <a href="#" data-view="students" class="active">
+          <span class="nav-icon" aria-hidden="true">👥</span>
+          <span>学生名单</span>
+        </a>
+        <a href="#" data-view="grades">
+          <span class="nav-icon" aria-hidden="true">📝</span>
+          <span>成绩录入</span>
+        </a>
+      </nav>
     </aside>
     <div class="admin-main">
       <header class="admin-header">
@@ -66,6 +79,45 @@
           </tbody>
         </table>
       </div>
+
+      <section class="content-toolbar" id="gradeToolbar" style="display:none;">
+        <h2 class="toolbar-title" id="gradeListTitle">成绩录入</h2>
+        <div class="toolbar-actions">
+          <button type="button" class="btn btn-primary" id="downloadTemplateBtn" style="background:linear-gradient(135deg,#10b981,#059669);box-shadow:0 4px 24px rgba(16,185,129,0.4);">⬇ 下载模板</button>
+          <label class="btn btn-primary" for="importGradeFile" style="background:linear-gradient(135deg,#f59e0b,#d97706);box-shadow:0 4px 24px rgba(245,158,11,0.4);cursor:pointer;">
+            📂 批量导入
+            <input type="file" id="importGradeFile" accept=".csv" style="display:none;" />
+          </label>
+          <button type="button" class="btn btn-primary" id="saveGradesBtn" style="background:linear-gradient(135deg,#6366f1,#8b5cf6);box-shadow:0 4px 24px rgba(99,102,241,0.4);">💾 批量保存</button>
+        </div>
+      </section>
+      <div class="table-wrap grade-table-wrap" id="gradeTableWrap" style="display:none;">
+        <div class="grade-legend">
+          <span class="grade-badge grade-a">A (≥90)</span>
+          <span class="grade-badge grade-b">B (80-89)</span>
+          <span class="grade-badge grade-c">C (70-79)</span>
+          <span class="grade-badge grade-d">D (60-69)</span>
+          <span class="grade-badge grade-f">F (<60)</span>
+          <span class="grade-hint">平时分 40% + 期末分 60% = 综合分</span>
+        </div>
+        <table>
+          <thead>
+            <tr>
+              <th style="width:60px;">序号</th>
+              <th>学号</th>
+              <th>姓名</th>
+              <th style="width:140px;">平时分</th>
+              <th style="width:140px;">期末分</th>
+              <th style="width:140px;">综合分</th>
+              <th style="width:100px;">等级</th>
+            </tr>
+          </thead>
+          <tbody id="gradeTableBody">
+            <tr><td colspan="7" style="text-align:center;color:var(--text-secondary);">加载中...</td></tr>
+          </tbody>
+        </table>
+      </div>
+
       <div id="emptyState" style="padding:80px 24px;text-align:center;">
         <div style="font-size:4rem;margin-bottom:16px;opacity:0.3;">📚</div>
         <p style="font-size:1.125rem;color:var(--text-secondary);">请从左侧选择一门课程</p>

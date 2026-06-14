@@ -1649,3 +1649,558 @@ tr:last-child td {
     gap: 8px;
   }
 }
+
+/* ========== 侧边栏分区标题 ========== */
+.sidebar-section-title {
+  font-size: 0.75rem;
+  color: var(--text-secondary);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  padding: 8px 0;
+}
+
+/* ========== 成绩录入相关 ========== */
+.grade-table-wrap {
+  margin-top: 0;
+}
+
+.grade-legend {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 20px;
+  background: rgba(255, 255, 255, 0.03);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  flex-wrap: wrap;
+}
+
+.grade-legend .grade-hint {
+  margin-left: auto;
+  font-size: 0.8125rem;
+  color: var(--text-secondary);
+}
+
+.grade-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 36px;
+  height: 28px;
+  padding: 0 10px;
+  border-radius: 8px;
+  font-size: 0.8125rem;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+}
+
+.grade-badge.grade-a {
+  background: linear-gradient(135deg, rgba(34, 197, 94, 0.2), rgba(34, 197, 94, 0.08));
+  color: #22c55e;
+  border: 1px solid rgba(34, 197, 94, 0.3);
+}
+
+.grade-badge.grade-b {
+  background: linear-gradient(135deg, rgba(59, 130, 246, 0.2), rgba(59, 130, 246, 0.08));
+  color: #3b82f6;
+  border: 1px solid rgba(59, 130, 246, 0.3);
+}
+
+.grade-badge.grade-c {
+  background: linear-gradient(135deg, rgba(245, 158, 11, 0.2), rgba(245, 158, 11, 0.08));
+  color: #f59e0b;
+  border: 1px solid rgba(245, 158, 11, 0.3);
+}
+
+.grade-badge.grade-d {
+  background: linear-gradient(135deg, rgba(249, 115, 22, 0.2), rgba(249, 115, 22, 0.08));
+  color: #f97316;
+  border: 1px solid rgba(249, 115, 22, 0.3);
+}
+
+.grade-badge.grade-f {
+  background: linear-gradient(135deg, rgba(239, 68, 68, 0.2), rgba(239, 68, 68, 0.08));
+  color: #ef4444;
+  border: 1px solid rgba(239, 68, 68, 0.3);
+}
+
+.grade-input {
+  width: 100%;
+  height: 36px;
+  padding: 0 12px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 8px;
+  color: var(--text-primary);
+  font-size: 0.9375rem;
+  font-weight: 500;
+  text-align: center;
+  transition: border-color 0.15s, box-shadow 0.15s, background 0.15s;
+}
+
+.grade-input:focus {
+  outline: none;
+  border-color: var(--accent-start);
+  box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.15);
+  background: rgba(99, 102, 241, 0.06);
+}
+
+.grade-input:hover {
+  border-color: rgba(99, 102, 241, 0.3);
+}
+
+.total-score {
+  font-size: 1.125rem;
+  font-weight: 700;
+  text-align: center;
+}
+
+.total-score.grade-a { color: #22c55e; }
+.total-score.grade-b { color: #3b82f6; }
+.total-score.grade-c { color: #f59e0b; }
+.total-score.grade-d { color: #f97316; }
+.total-score.grade-f { color: #ef4444; }
+
+table td .grade-badge {
+  margin: 0 auto;
+}
+
+/* ========== 学生端 Tab 切换 ========== */
+.student-tabs {
+  display: flex;
+  gap: 4px;
+  padding: 4px;
+  background: rgba(255, 255, 255, 0.06);
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.student-tab {
+  padding: 8px 20px;
+  background: transparent;
+  border: none;
+  color: var(--text-secondary);
+  font-size: 0.875rem;
+  font-weight: 500;
+  cursor: pointer;
+  border-radius: 8px;
+  transition: all 0.2s;
+}
+
+.student-tab:hover {
+  color: var(--text-primary);
+}
+
+.student-tab.active {
+  background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%);
+  color: #fff;
+  box-shadow: 0 2px 8px rgba(99, 102, 241, 0.3);
+}
+
+/* ========== 学生端 GPA 卡片 ========== */
+.gpa-card-section {
+  margin-bottom: 32px;
+}
+
+.gpa-card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 32px 40px;
+  background: linear-gradient(135deg, rgba(99, 102, 241, 0.15) 0%, rgba(139, 92, 246, 0.1) 100%);
+  border: 1px solid rgba(99, 102, 241, 0.25);
+  border-radius: 20px;
+  backdrop-filter: blur(20px);
+  box-shadow: 0 20px 60px rgba(99, 102, 241, 0.15);
+}
+
+.gpa-card-left {
+  flex: 1;
+}
+
+.gpa-label {
+  font-size: 0.9375rem;
+  color: var(--text-secondary);
+  margin-bottom: 8px;
+  font-weight: 500;
+}
+
+.gpa-value {
+  font-size: 3.5rem;
+  font-weight: 800;
+  background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  line-height: 1.1;
+  letter-spacing: -0.02em;
+}
+
+.gpa-meta {
+  display: flex;
+  gap: 24px;
+  margin-top: 16px;
+  font-size: 0.875rem;
+  color: var(--text-secondary);
+}
+
+.gpa-meta span {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.gpa-card-right {
+  flex-shrink: 0;
+}
+
+.gpa-chart {
+  position: relative;
+  width: 140px;
+  height: 140px;
+}
+
+.gpa-ring {
+  width: 100%;
+  height: 100%;
+  transform: rotate(-90deg);
+}
+
+.gpa-ring-bg {
+  fill: none;
+  stroke: rgba(255, 255, 255, 0.08);
+  stroke-width: 10;
+}
+
+.gpa-ring-progress {
+  fill: none;
+  stroke: url(#gpaGradient);
+  stroke-width: 10;
+  stroke-linecap: round;
+  stroke: #6366f1;
+  stroke-dasharray: 326.7;
+  stroke-dashoffset: 326.7;
+  transition: stroke-dashoffset 0.8s ease;
+}
+
+.gpa-ring-center {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+}
+
+.gpa-ring-center span:first-child {
+  font-size: 1.75rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  line-height: 1;
+}
+
+.gpa-ring-unit {
+  font-size: 0.75rem;
+  color: var(--text-secondary);
+  margin-top: 4px;
+}
+
+/* ========== 学生端折线图 ========== */
+.chart-section {
+  margin-bottom: 32px;
+}
+
+.chart-card {
+  background: var(--bg-glass);
+  border: 1px solid var(--bg-glass-border);
+  border-radius: 16px;
+  padding: 24px;
+  backdrop-filter: blur(20px);
+}
+
+.chart-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 20px;
+}
+
+.chart-title {
+  font-size: 1.0625rem;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.chart-legend {
+  display: flex;
+  gap: 20px;
+  font-size: 0.8125rem;
+  color: var(--text-secondary);
+}
+
+.chart-legend-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.legend-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  display: inline-block;
+}
+
+.legend-gpa {
+  background: #6366f1;
+  box-shadow: 0 0 8px rgba(99, 102, 241, 0.5);
+}
+
+.legend-score {
+  background: #22c55e;
+  box-shadow: 0 0 8px rgba(34, 197, 94, 0.5);
+}
+
+.chart-container {
+  width: 100%;
+  overflow: hidden;
+}
+
+.line-chart-svg {
+  width: 100%;
+  height: auto;
+  display: block;
+}
+
+/* ========== 学生端成绩列表 ========== */
+.grades-filter-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 20px;
+  flex-wrap: wrap;
+  gap: 16px;
+}
+
+.filter-actions {
+  display: flex;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.filter-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.filter-label {
+  font-size: 0.8125rem;
+  color: var(--text-secondary);
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+.filter-select {
+  height: 36px;
+  padding: 0 32px 0 12px;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 10px;
+  color: var(--text-primary);
+  font-size: 0.875rem;
+  cursor: pointer;
+  appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='20' height='20' viewBox='0 0 24 24' fill='none' stroke='%23a1a1aa' stroke-width='2'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 8px center;
+  background-size: 14px;
+  transition: border-color 0.15s, box-shadow 0.15s;
+  min-width: 140px;
+}
+
+.filter-select:hover {
+  border-color: rgba(99, 102, 241, 0.4);
+}
+
+.filter-select:focus {
+  outline: none;
+  border-color: var(--accent-start);
+  box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.15);
+}
+
+.grades-list {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+.grade-semester-group {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.grade-semester-title {
+  font-size: 0.9375rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  padding-left: 4px;
+  border-left: 3px solid var(--accent-start);
+  padding-left: 12px;
+}
+
+.grade-items {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.grade-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 20px;
+  background: var(--bg-glass);
+  border: 1px solid var(--bg-glass-border);
+  border-radius: 14px;
+  transition: all 0.2s;
+  backdrop-filter: blur(10px);
+}
+
+.grade-item:hover {
+  border-color: rgba(99, 102, 241, 0.3);
+  transform: translateY(-1px);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.2);
+}
+
+.grade-item-left {
+  flex: 1;
+  min-width: 0;
+}
+
+.grade-course-code {
+  font-size: 0.75rem;
+  color: var(--text-secondary);
+  font-weight: 500;
+  letter-spacing: 0.02em;
+  margin-bottom: 4px;
+}
+
+.grade-course-name {
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin-bottom: 6px;
+}
+
+.grade-item-meta {
+  display: flex;
+  gap: 16px;
+  font-size: 0.8125rem;
+  color: var(--text-secondary);
+  flex-wrap: wrap;
+}
+
+.grade-item-right {
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 6px;
+  margin-left: 16px;
+}
+
+.grade-total {
+  font-size: 1.5rem;
+  font-weight: 700;
+  line-height: 1;
+}
+
+.grade-total.grade-a { color: #22c55e; }
+.grade-total.grade-b { color: #3b82f6; }
+.grade-total.grade-c { color: #f59e0b; }
+.grade-total.grade-d { color: #f97316; }
+.grade-total.grade-f { color: #ef4444; }
+
+.grade-gpa {
+  font-size: 0.75rem;
+  color: var(--text-secondary);
+}
+
+.grade-skeleton {
+  height: 80px;
+  background: linear-gradient(90deg, rgba(255, 255, 255, 0.04) 25%, rgba(255, 255, 255, 0.08) 50%, rgba(255, 255, 255, 0.04) 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.5s infinite;
+  border-radius: 14px;
+}
+
+@keyframes shimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+
+/* ========== 成绩页面响应式 ========== */
+@media (max-width: 768px) {
+  .gpa-card {
+    flex-direction: column;
+    gap: 24px;
+    padding: 24px;
+    text-align: center;
+  }
+
+  .gpa-value {
+    font-size: 2.5rem;
+  }
+
+  .gpa-meta {
+    justify-content: center;
+  }
+
+  .student-header .header-actions {
+    width: 100%;
+    justify-content: flex-start;
+  }
+
+  .student-tabs {
+    width: 100%;
+  }
+
+  .student-tab {
+    flex: 1;
+  }
+
+  .chart-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 12px;
+  }
+
+  .grades-filter-bar {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .filter-actions {
+    width: 100%;
+  }
+
+  .filter-item {
+    flex: 1;
+  }
+
+  .filter-select {
+    flex: 1;
+    min-width: 0;
+  }
+
+  .grade-item {
+    padding: 14px 16px;
+  }
+
+  .grade-total {
+    font-size: 1.25rem;
+  }
+}
