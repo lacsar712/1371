@@ -174,12 +174,18 @@
     document.getElementById('name').value = '';
     document.getElementById('credit').value = '';
     document.getElementById('capacity').value = '';
+    currentResourcesCourseId = null;
+    resourceSearchKeyword = '';
+    allCourseResources = [];
+    const searchInput = document.getElementById('resourceSearchInput');
+    if (searchInput) searchInput.value = '';
     await populateCourseSemesterSelect();
     const semSelect = document.getElementById('courseSemesterId');
     if (currentSemesterId) semSelect.value = currentSemesterId;
     await loadTeachersForModal();
     renderTeacherCheckboxes([]);
     courseModalTitle.textContent = '新增课程';
+    switchCourseModalTab('basic');
     courseModal.classList.remove('modal-editing');
     courseModal.classList.add('show');
   }
@@ -192,12 +198,18 @@
     document.getElementById('name').value = course.name;
     document.getElementById('credit').value = course.credit;
     document.getElementById('capacity').value = course.capacity;
+    currentResourcesCourseId = id;
+    resourceSearchKeyword = '';
+    allCourseResources = [];
+    const searchInput = document.getElementById('resourceSearchInput');
+    if (searchInput) searchInput.value = '';
     await populateCourseSemesterSelect();
     const semSelect = document.getElementById('courseSemesterId');
     if (course.semesterId) semSelect.value = course.semesterId;
     await loadTeachersForModal();
     renderTeacherCheckboxes((course.teachers || []).map((t) => t.id));
     courseModalTitle.textContent = '编辑课程';
+    switchCourseModalTab('basic');
     courseModal.classList.add('modal-editing', 'show');
   }
 
@@ -251,6 +263,10 @@
       });
       if (data && data.ok) {
         showToast('保存成功', 'success');
+        if (currentCourseModalTab === 'resources') {
+          currentResourcesCourseId = parseInt(id, 10);
+          loadCourseResources();
+        }
         closeCourseModal();
         loadCourses();
       } else {
@@ -263,6 +279,13 @@
       });
       if (data && data.ok) {
         showToast('新增成功', 'success');
+        if (data.data && data.data.id) {
+          document.getElementById('courseId').value = data.data.id;
+          currentResourcesCourseId = data.data.id;
+          if (currentCourseModalTab === 'resources') {
+            loadCourseResources();
+          }
+        }
         closeCourseModal();
         loadCourses();
       } else {
@@ -1640,6 +1663,218 @@
     }
   });
 
+  function formatFileSize(bytes) {
+    if (!bytes || bytes <= 0) return '0 B';
+    const units = ['B', 'KB', 'MB', 'GB'];
+    let i = 0;
+    let size = Number(bytes);
+    while (size >= 1024 && i < units.length - 1) {
+      size /= 1024;
+      i++;
+    }
+    return size.toFixed(size >= 10 || i === 0 ? 0 : 1) + ' ' + units[i];
+  }
+
+  function formatDateTime(d) {
+    if (!d) return '';
+    const date = new Date(d);
+    if (Number.isNaN(date.getTime())) return String(d);
+    const pad = (n) => String(n).padStart(2, '0');
+    return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())} ${pad(date.getHours())}:${pad(date.getMinutes())}`;
+  }
+
+  let currentCourseModalTab = 'basic';
+  let currentResourcesCourseId = null;
+  let resourceSearchKeyword = '';
+  let allCourseResources = [];
+
+  function switchCourseModalTab(tab) {
+    currentCourseModalTab = tab;
+    document.querySelectorAll('.course-modal-tab').forEach((b) => {
+      b.classList.toggle('active', b.dataset.courseTab === tab);
+    });
+    document.getElementById('courseTabBasic').style.display = tab === 'basic' ? '' : 'none';
+    document.getElementById('courseTabResources').style.display = tab === 'resources' ? '' : 'none';
+    if (tab === 'resources') {
+      const cid = document.getElementById('courseId').value;
+      if (cid) {
+        currentResourcesCourseId = parseInt(cid, 10);
+        loadCourseResources();
+      } else {
+        currentResourcesCourseId = null;
+        document.getElementById('resourceList').innerHTML = '<p style="text-align:center;color:var(--text-secondary);padding:24px;">请先保存课程后再上传资源</p>';
+      }
+    }
+  }
+
+  async function loadCourseResources() {
+    if (!currentResourcesCourseId) return;
+    const listEl = document.getElementById('resourceList');
+    listEl.innerHTML = '<p style="text-align:center;color:var(--text-secondary);padding:24px;">加载中...</p>';
+    const { data } = await api('/api/resources/course/' + currentResourcesCourseId);
+    if (!data || !data.ok || !Array.isArray(data.data)) {
+      listEl.innerHTML = '<p style="text-align:center;color:var(--danger);padding:24px;">加载失败</p>';
+      return;
+    }
+    allCourseResources = data.data;
+    renderCourseResources();
+  }
+
+  function renderCourseResources() {
+    const listEl = document.getElementById('resourceList');
+    const keyword = resourceSearchKeyword.trim().toLowerCase();
+    const list = keyword
+      ? allCourseResources.filter((r) => r.fileName && r.fileName.toLowerCase().includes(keyword))
+      : allCourseResources;
+    if (!list.length) {
+      listEl.innerHTML = `<p style="text-align:center;color:var(--text-secondary);padding:24px;">${keyword ? '未找到匹配的资源' : '暂无资源，拖拽或点击上方区域上传文件'}</p>`;
+      return;
+    }
+    listEl.innerHTML = list.map((r) => `
+      <div class="resource-item" data-id="${r.id}">
+        <div class="resource-icon">📄</div>
+        <div class="resource-info">
+          <div class="resource-name" data-id="${r.id}">${escapeHtml(r.fileName)}</div>
+          <div class="resource-meta">
+            <span>${formatFileSize(r.fileSize)}</span>
+            <span>上传者：${escapeHtml(r.uploaderName || '未知')}</span>
+            <span>下载：${r.downloadCount || 0} 次</span>
+            <span>${formatDateTime(r.uploadTime)}</span>
+          </div>
+        </div>
+        <div class="resource-actions">
+          <button type="button" class="btn btn-ghost btn-sm resource-rename-btn" data-id="${r.id}">重命名</button>
+          <button type="button" class="btn btn-ghost btn-sm resource-download-btn" data-id="${r.id}">下载</button>
+          <button type="button" class="btn btn-danger btn-sm resource-delete-btn" data-id="${r.id}">删除</button>
+        </div>
+      </div>
+    `).join('');
+
+    listEl.querySelectorAll('.resource-rename-btn').forEach((btn) => {
+      btn.addEventListener('click', () => renameResource(parseInt(btn.dataset.id, 10)));
+    });
+    listEl.querySelectorAll('.resource-download-btn').forEach((btn) => {
+      btn.addEventListener('click', () => downloadResource(parseInt(btn.dataset.id, 10)));
+    });
+    listEl.querySelectorAll('.resource-delete-btn').forEach((btn) => {
+      btn.addEventListener('click', () => deleteResource(parseInt(btn.dataset.id, 10)));
+    });
+  }
+
+  async function uploadResourceFiles(files) {
+    if (!currentResourcesCourseId) {
+      showToast('请先保存课程后再上传资源', 'error');
+      return;
+    }
+    if (!files || !files.length) return;
+    for (const file of files) {
+      if (file.size > 100 * 1024 * 1024) {
+        showToast(`文件 ${file.name} 超过 100MB，已跳过`, 'error');
+        continue;
+      }
+      const formData = new FormData();
+      formData.append('courseId', currentResourcesCourseId);
+      formData.append('uploadedBy', user.id);
+      formData.append('uploaderRole', user.role || 'admin');
+      formData.append('file', file);
+      try {
+        const r = await fetch(API_BASE + '/api/resources/upload', {
+          method: 'POST',
+          body: formData,
+          credentials: 'include',
+        });
+        const d = await r.json();
+        if (d && d.ok) {
+          showToast(`已上传：${file.name}`, 'success');
+        } else {
+          showToast(`上传失败：${(d && d.message) || file.name}`, 'error');
+        }
+      } catch (e) {
+        showToast(`上传失败：${file.name}`, 'error');
+      }
+    }
+    loadCourseResources();
+  }
+
+  function downloadResource(id) {
+    window.open(API_BASE + '/api/resources/download/' + id, '_blank');
+  }
+
+  async function renameResource(id) {
+    const item = allCourseResources.find((r) => r.id === id);
+    if (!item) return;
+    const newName = prompt('请输入新的文件名：', item.fileName);
+    if (!newName || !newName.trim()) return;
+    const { data } = await api('/api/resources/' + id + '/rename', {
+      method: 'PUT',
+      body: JSON.stringify({ fileName: newName.trim() }),
+    });
+    if (data && data.ok) {
+      showToast('已重命名', 'success');
+      loadCourseResources();
+    } else {
+      showToast((data && data.message) || '重命名失败', 'error');
+    }
+  }
+
+  async function deleteResource(id) {
+    if (!confirm('确定删除该资源？文件将被永久删除。')) return;
+    const { data } = await api('/api/resources/' + id, { method: 'DELETE' });
+    if (data && data.ok) {
+      showToast('已删除', 'success');
+      loadCourseResources();
+    } else {
+      showToast((data && data.message) || '删除失败', 'error');
+    }
+  }
+
+  function bindResourceEvents() {
+    document.querySelectorAll('.course-modal-tab').forEach((b) => {
+      b.addEventListener('click', () => switchCourseModalTab(b.dataset.courseTab));
+    });
+
+    const dropArea = document.getElementById('resourceDropArea');
+    const fileInput = document.getElementById('resourceFileInput');
+
+    if (dropArea) {
+      ['dragenter', 'dragover'].forEach((evt) => {
+        dropArea.addEventListener(evt, (e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          dropArea.classList.add('dragover');
+        });
+      });
+      ['dragleave', 'drop'].forEach((evt) => {
+        dropArea.addEventListener(evt, (e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          dropArea.classList.remove('dragover');
+        });
+      });
+      dropArea.addEventListener('drop', (e) => {
+        if (e.dataTransfer && e.dataTransfer.files) {
+          uploadResourceFiles(e.dataTransfer.files);
+        }
+      });
+      dropArea.addEventListener('click', () => fileInput && fileInput.click());
+    }
+
+    if (fileInput) {
+      fileInput.addEventListener('change', (e) => {
+        uploadResourceFiles(e.target.files);
+        fileInput.value = '';
+      });
+    }
+
+    const searchInput = document.getElementById('resourceSearchInput');
+    if (searchInput) {
+      searchInput.addEventListener('input', (e) => {
+        resourceSearchKeyword = e.target.value || '';
+        renderCourseResources();
+      });
+    }
+  }
+
   // ========== 导航绑定 ==========
   document.querySelectorAll('.sidebar-nav a').forEach((a) => {
     a.addEventListener('click', (e) => {
@@ -1666,6 +1901,7 @@
     if (window.MessageCenter) {
       MessageCenter.init(document.getElementById('msgBellContainer'));
     }
+    bindResourceEvents();
     refreshSemesterDropdown().then(() => {
       const select = document.getElementById('adminSemesterSelect');
       if (select.value) currentSemesterId = parseInt(select.value, 10);

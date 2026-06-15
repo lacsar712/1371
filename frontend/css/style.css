@@ -2948,6 +2948,180 @@ table td .grade-badge {
   cursor: not-allowed;
 }
 
+.course-modal-tabs {
+  display: flex;
+  gap: 0;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  margin: 0 -32px 20px;
+  padding: 0 32px;
+}
+
+.course-modal-tab {
+  padding: 12px 20px;
+  background: none;
+  border: none;
+  color: var(--text-secondary);
+  font-size: 0.875rem;
+  font-weight: 500;
+  cursor: pointer;
+  border-bottom: 2px solid transparent;
+  transition: all 0.2s;
+}
+
+.course-modal-tab:hover {
+  color: var(--text-primary);
+}
+
+.course-modal-tab.active {
+  color: var(--accent-start);
+  border-bottom-color: var(--accent-start);
+}
+
+.course-tab-content {
+  max-height: 60vh;
+  overflow-y: auto;
+}
+
+.resource-upload-area {
+  border: 2px dashed rgba(255, 255, 255, 0.15);
+  border-radius: 14px;
+  padding: 32px 24px;
+  text-align: center;
+  cursor: pointer;
+  transition: all 0.25s ease;
+  background: rgba(255, 255, 255, 0.02);
+  margin-bottom: 16px;
+}
+
+.resource-upload-area:hover,
+.resource-upload-area.dragover {
+  border-color: var(--accent-start);
+  background: rgba(99, 102, 241, 0.08);
+}
+
+.resource-upload-inner {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+}
+
+.resource-search-bar {
+  margin-bottom: 12px;
+}
+
+.resource-search-bar input {
+  width: 100%;
+  height: 42px;
+  padding: 0 16px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid var(--bg-glass-border);
+  border-radius: 10px;
+  color: var(--text-primary);
+  font-size: 0.9375rem;
+  font-family: inherit;
+  transition: border-color 0.2s, background 0.2s;
+}
+
+.resource-search-bar input::placeholder {
+  color: var(--text-secondary);
+}
+
+.resource-search-bar input:focus {
+  outline: none;
+  border-color: var(--accent-start);
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.resource-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.resource-item {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 14px 16px;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 12px;
+  transition: background 0.2s, border-color 0.2s;
+}
+
+.resource-item:hover {
+  background: rgba(255, 255, 255, 0.05);
+  border-color: rgba(255, 255, 255, 0.12);
+}
+
+.resource-icon {
+  font-size: 1.5rem;
+  flex-shrink: 0;
+  width: 40px;
+  height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 10px;
+}
+
+.resource-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.resource-name {
+  font-weight: 500;
+  color: var(--text-primary);
+  font-size: 0.9375rem;
+  margin-bottom: 4px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.resource-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  color: var(--text-secondary);
+  font-size: 0.8125rem;
+}
+
+.resource-meta span {
+  white-space: nowrap;
+}
+
+.resource-actions {
+  display: flex;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
+@media (max-width: 640px) {
+  .resource-item {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .resource-actions {
+    width: 100%;
+    justify-content: flex-end;
+  }
+
+  .resource-meta {
+    gap: 8px;
+  }
+
+  .course-modal-tabs {
+    margin: 0 -24px 16px;
+    padding: 0 24px;
+  }
+}
+
 /* 消息详情 */
 .msg-detail-view {
   flex: 1;

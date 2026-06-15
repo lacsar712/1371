@@ -178,11 +178,20 @@
       </div>
       <div class="drawer-tabs">
         <button type="button" class="drawer-tab active" data-drawer-tab="info">课程信息</button>
+        <button type="button" class="drawer-tab" data-drawer-tab="resources">课程资源</button>
         <button type="button" class="drawer-tab" data-drawer-tab="eval">评教</button>
       </div>
       <div class="drawer-body">
         <div id="drawerTabInfo" class="drawer-tab-content">
           <div id="drawerCourseInfo" style="padding:0 4px;"></div>
+        </div>
+        <div id="drawerTabResources" class="drawer-tab-content" style="display:none;">
+          <div class="resource-search-bar">
+            <input type="text" id="studentResourceSearch" placeholder="按文件名搜索..." />
+          </div>
+          <div class="resource-list" id="drawerResourceList">
+            <p style="text-align:center;color:var(--text-secondary);padding:24px;">加载中...</p>
+          </div>
         </div>
         <div id="drawerTabEval" class="drawer-tab-content" style="display:none;">
           <div id="drawerEvalContent"></div>

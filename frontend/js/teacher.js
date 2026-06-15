@@ -171,6 +171,8 @@
       loadStudents();
     } else if (currentView === 'grades') {
       loadGrades();
+    } else if (currentView === 'resources') {
+      loadTeacherResources();
     }
   }
 
@@ -181,6 +183,8 @@
       document.getElementById('studentTableWrap').style.display = 'none';
       document.getElementById('gradeToolbar').style.display = 'none';
       document.getElementById('gradeTableWrap').style.display = 'none';
+      document.getElementById('resourceToolbar').style.display = 'none';
+      document.getElementById('resourceContent').style.display = 'none';
       return;
     }
     if (currentView === 'students') {
@@ -189,12 +193,24 @@
       document.getElementById('studentTableWrap').style.display = '';
       document.getElementById('gradeToolbar').style.display = 'none';
       document.getElementById('gradeTableWrap').style.display = 'none';
+      document.getElementById('resourceToolbar').style.display = 'none';
+      document.getElementById('resourceContent').style.display = 'none';
     } else if (currentView === 'grades') {
       document.getElementById('emptyState').style.display = 'none';
       document.getElementById('studentToolbar').style.display = 'none';
       document.getElementById('studentTableWrap').style.display = 'none';
       document.getElementById('gradeToolbar').style.display = '';
       document.getElementById('gradeTableWrap').style.display = '';
+      document.getElementById('resourceToolbar').style.display = 'none';
+      document.getElementById('resourceContent').style.display = 'none';
+    } else if (currentView === 'resources') {
+      document.getElementById('emptyState').style.display = 'none';
+      document.getElementById('studentToolbar').style.display = 'none';
+      document.getElementById('studentTableWrap').style.display = 'none';
+      document.getElementById('gradeToolbar').style.display = 'none';
+      document.getElementById('gradeTableWrap').style.display = 'none';
+      document.getElementById('resourceToolbar').style.display = '';
+      document.getElementById('resourceContent').style.display = '';
     }
   }
 
@@ -210,6 +226,8 @@
     updateView();
     if (view === 'grades') {
       loadGrades();
+    } else if (view === 'resources') {
+      loadTeacherResources();
     }
   }
 
@@ -564,6 +582,191 @@
     }
   }
 
+  function formatFileSize(bytes) {
+    if (!bytes || bytes <= 0) return '0 B';
+    const units = ['B', 'KB', 'MB', 'GB'];
+    let i = 0;
+    let size = Number(bytes);
+    while (size >= 1024 && i < units.length - 1) {
+      size /= 1024;
+      i++;
+    }
+    return size.toFixed(size >= 10 || i === 0 ? 0 : 1) + ' ' + units[i];
+  }
+
+  function formatDateTimeShort(d) {
+    if (!d) return '';
+    const date = new Date(d);
+    if (Number.isNaN(date.getTime())) return String(d);
+    const pad = (n) => String(n).padStart(2, '0');
+    return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())} ${pad(date.getHours())}:${pad(date.getMinutes())}`;
+  }
+
+  let allTeacherResources = [];
+  let teacherResourceKeyword = '';
+
+  async function loadTeacherResources() {
+    if (!currentCourseId) return;
+    const listEl = document.getElementById('teacherResourceList');
+    listEl.innerHTML = '<p style="text-align:center;color:var(--text-secondary);padding:24px;">加载中...</p>';
+    const { data } = await api('/api/resources/course/' + currentCourseId);
+    if (!data || !data.ok || !Array.isArray(data.data)) {
+      listEl.innerHTML = '<p style="text-align:center;color:var(--danger);padding:24px;">加载失败</p>';
+      return;
+    }
+    allTeacherResources = data.data;
+    renderTeacherResources();
+  }
+
+  function renderTeacherResources() {
+    const listEl = document.getElementById('teacherResourceList');
+    const keyword = teacherResourceKeyword.trim().toLowerCase();
+    const list = keyword
+      ? allTeacherResources.filter((r) => r.fileName && r.fileName.toLowerCase().includes(keyword))
+      : allTeacherResources;
+    if (!list.length) {
+      listEl.innerHTML = `<p style="text-align:center;color:var(--text-secondary);padding:24px;">${keyword ? '未找到匹配的资源' : '暂无资源，拖拽或点击上方区域上传文件'}</p>`;
+      return;
+    }
+    listEl.innerHTML = list.map((r) => `
+      <div class="resource-item" data-id="${r.id}">
+        <div class="resource-icon">📄</div>
+        <div class="resource-info">
+          <div class="resource-name">${escapeHtml(r.fileName)}</div>
+          <div class="resource-meta">
+            <span>${formatFileSize(r.fileSize)}</span>
+            <span>上传者：${escapeHtml(r.uploaderName || '未知')}</span>
+            <span>下载：${r.downloadCount || 0} 次</span>
+            <span>${formatDateTimeShort(r.uploadTime)}</span>
+          </div>
+        </div>
+        <div class="resource-actions">
+          <button type="button" class="btn btn-ghost btn-sm t-resource-rename" data-id="${r.id}">重命名</button>
+          <button type="button" class="btn btn-ghost btn-sm t-resource-download" data-id="${r.id}">下载</button>
+          <button type="button" class="btn btn-danger btn-sm t-resource-delete" data-id="${r.id}">删除</button>
+        </div>
+      </div>
+    `).join('');
+
+    listEl.querySelectorAll('.t-resource-rename').forEach((btn) => {
+      btn.addEventListener('click', () => renameTeacherResource(parseInt(btn.dataset.id, 10)));
+    });
+    listEl.querySelectorAll('.t-resource-download').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        window.open(API_BASE + '/api/resources/download/' + btn.dataset.id, '_blank');
+      });
+    });
+    listEl.querySelectorAll('.t-resource-delete').forEach((btn) => {
+      btn.addEventListener('click', () => deleteTeacherResource(parseInt(btn.dataset.id, 10)));
+    });
+  }
+
+  async function uploadTeacherResourceFiles(files) {
+    if (!currentCourseId) {
+      showToast('请先选择课程', 'error');
+      return;
+    }
+    if (!files || !files.length) return;
+    for (const file of files) {
+      if (file.size > 100 * 1024 * 1024) {
+        showToast(`文件 ${file.name} 超过 100MB，已跳过`, 'error');
+        continue;
+      }
+      const formData = new FormData();
+      formData.append('courseId', currentCourseId);
+      formData.append('uploadedBy', user.id);
+      formData.append('uploaderRole', 'teacher');
+      formData.append('file', file);
+      try {
+        const r = await fetch(API_BASE + '/api/resources/upload', {
+          method: 'POST',
+          body: formData,
+          credentials: 'include',
+        });
+        const d = await r.json();
+        if (d && d.ok) {
+          showToast(`已上传：${file.name}`, 'success');
+        } else {
+          showToast(`上传失败：${(d && d.message) || file.name}`, 'error');
+        }
+      } catch (e) {
+        showToast(`上传失败：${file.name}`, 'error');
+      }
+    }
+    loadTeacherResources();
+  }
+
+  async function renameTeacherResource(id) {
+    const item = allTeacherResources.find((r) => r.id === id);
+    if (!item) return;
+    const newName = prompt('请输入新的文件名：', item.fileName);
+    if (!newName || !newName.trim()) return;
+    const { data } = await api('/api/resources/' + id + '/rename', {
+      method: 'PUT',
+      body: JSON.stringify({ fileName: newName.trim() }),
+    });
+    if (data && data.ok) {
+      showToast('已重命名', 'success');
+      loadTeacherResources();
+    } else {
+      showToast((data && data.message) || '重命名失败', 'error');
+    }
+  }
+
+  async function deleteTeacherResource(id) {
+    if (!confirm('确定删除该资源？文件将被永久删除。')) return;
+    const { data } = await api('/api/resources/' + id, { method: 'DELETE' });
+    if (data && data.ok) {
+      showToast('已删除', 'success');
+      loadTeacherResources();
+    } else {
+      showToast((data && data.message) || '删除失败', 'error');
+    }
+  }
+
+  function bindTeacherResourceEvents() {
+    const dropArea = document.getElementById('teacherResourceDropArea');
+    const fileInput = document.getElementById('teacherResourceFileInput');
+
+    if (dropArea) {
+      ['dragenter', 'dragover'].forEach((evt) => {
+        dropArea.addEventListener(evt, (e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          dropArea.classList.add('dragover');
+        });
+      });
+      ['dragleave', 'drop'].forEach((evt) => {
+        dropArea.addEventListener(evt, (e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          dropArea.classList.remove('dragover');
+        });
+      });
+      dropArea.addEventListener('drop', (e) => {
+        if (e.dataTransfer && e.dataTransfer.files) {
+          uploadTeacherResourceFiles(e.dataTransfer.files);
+        }
+      });
+      dropArea.addEventListener('click', () => fileInput && fileInput.click());
+    }
+
+    if (fileInput) {
+      fileInput.addEventListener('change', (e) => {
+        uploadTeacherResourceFiles(e.target.files);
+        fileInput.value = '';
+      });
+    }
+
+    const searchInput = document.getElementById('teacherResourceSearchInput');
+    if (searchInput) {
+      searchInput.addEventListener('input', (e) => {
+        teacherResourceKeyword = e.target.value || '';
+        renderTeacherResources();
+      });
+    }
+  }
+
   function init() {
     user = getStoredUser();
     if (!user) {
@@ -575,6 +778,8 @@
     if (window.MessageCenter) {
       MessageCenter.init(document.getElementById('msgBellContainer'));
     }
+
+    bindTeacherResourceEvents();
 
     document.getElementById('searchStudentBtn').addEventListener('click', loadStudents);
     document.getElementById('studentKeyword').addEventListener('keydown', (e) => {

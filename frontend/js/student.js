@@ -14,6 +14,8 @@
   let gradeLevelFilter = null;
   let currentEvalCourseId = null;
   let currentDrawerCourseId = null;
+  let drawerResources = [];
+  let drawerResourceKeyword = '';
 
   function getStoredUser() {
     try {
@@ -535,7 +537,12 @@
       t.classList.toggle('active', t.dataset.drawerTab === 'info');
     });
     document.getElementById('drawerTabInfo').style.display = '';
+    document.getElementById('drawerTabResources').style.display = 'none';
     document.getElementById('drawerTabEval').style.display = 'none';
+    drawerResources = [];
+    drawerResourceKeyword = '';
+    const searchInput = document.getElementById('studentResourceSearch');
+    if (searchInput) searchInput.value = '';
 
     document.getElementById('courseDrawerOverlay').classList.add('show');
     loadDrawerEval(courseId);
@@ -631,6 +638,83 @@
     return html;
   }
 
+  function formatFileSizeSt(bytes) {
+    if (!bytes || bytes <= 0) return '0 B';
+    const units = ['B', 'KB', 'MB', 'GB'];
+    let i = 0;
+    let size = Number(bytes);
+    while (size >= 1024 && i < units.length - 1) {
+      size /= 1024;
+      i++;
+    }
+    return size.toFixed(size >= 10 || i === 0 ? 0 : 1) + ' ' + units[i];
+  }
+
+  function formatDateTimeSt(d) {
+    if (!d) return '';
+    const date = new Date(d);
+    if (Number.isNaN(date.getTime())) return String(d);
+    const pad = (n) => String(n).padStart(2, '0');
+    return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())} ${pad(date.getHours())}:${pad(date.getMinutes())}`;
+  }
+
+  async function loadDrawerResources(courseId) {
+    const listEl = document.getElementById('drawerResourceList');
+    listEl.innerHTML = '<p style="text-align:center;color:var(--text-secondary);padding:24px;">加载中...</p>';
+    const { data } = await api('/api/resources/course/' + courseId);
+    if (!data || !data.ok || !Array.isArray(data.data)) {
+      listEl.innerHTML = '<p style="text-align:center;color:var(--danger);padding:24px;">加载失败</p>';
+      return;
+    }
+    drawerResources = data.data;
+    renderDrawerResources();
+  }
+
+  function renderDrawerResources() {
+    const listEl = document.getElementById('drawerResourceList');
+    const keyword = drawerResourceKeyword.trim().toLowerCase();
+    const list = keyword
+      ? drawerResources.filter((r) => r.fileName && r.fileName.toLowerCase().includes(keyword))
+      : drawerResources;
+    if (!list.length) {
+      listEl.innerHTML = `<p style="text-align:center;color:var(--text-secondary);padding:24px;">${keyword ? '未找到匹配的资源' : '暂无课程资源'}</p>`;
+      return;
+    }
+    listEl.innerHTML = list.map((r) => `
+      <div class="resource-item" data-id="${r.id}">
+        <div class="resource-icon">📄</div>
+        <div class="resource-info">
+          <div class="resource-name">${escapeHtml(r.fileName)}</div>
+          <div class="resource-meta">
+            <span>${formatFileSizeSt(r.fileSize)}</span>
+            <span>上传者：${escapeHtml(r.uploaderName || '未知')}</span>
+            <span>下载：${r.downloadCount || 0} 次</span>
+            <span>${formatDateTimeSt(r.uploadTime)}</span>
+          </div>
+        </div>
+        <div class="resource-actions">
+          <button type="button" class="btn btn-primary btn-sm st-resource-download" data-id="${r.id}">下载</button>
+        </div>
+      </div>
+    `).join('');
+
+    listEl.querySelectorAll('.st-resource-download').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        window.open(API_BASE + '/api/resources/download/' + btn.dataset.id, '_blank');
+      });
+    });
+  }
+
+  function initDrawerResourceSearch() {
+    const searchInput = document.getElementById('studentResourceSearch');
+    if (searchInput) {
+      searchInput.addEventListener('input', (e) => {
+        drawerResourceKeyword = e.target.value || '';
+        renderDrawerResources();
+      });
+    }
+  }
+
   async function initSemesterDropdown() {
     const { data } = await api('/api/semesters');
     if (data && data.ok && Array.isArray(data.data)) {
@@ -691,7 +775,11 @@
         tab.classList.add('active');
         const target = tab.dataset.drawerTab;
         document.getElementById('drawerTabInfo').style.display = target === 'info' ? '' : 'none';
+        document.getElementById('drawerTabResources').style.display = target === 'resources' ? '' : 'none';
         document.getElementById('drawerTabEval').style.display = target === 'eval' ? '' : 'none';
+        if (target === 'resources' && currentDrawerCourseId) {
+          loadDrawerResources(currentDrawerCourseId);
+        }
       });
     });
   }
@@ -755,6 +843,7 @@
     initEvalStars();
     initEvalModal();
     initDrawer();
+    initDrawerResourceSearch();
 
     initSemesterDropdown().then(() => {
       loadEvaluatedCourses().then(() => {

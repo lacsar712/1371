@@ -354,36 +354,58 @@
 
   <!-- 课程编辑弹窗 -->
   <div id="courseModalOverlay" class="modal-overlay">
-    <div class="modal" style="max-width:520px;">
+    <div class="modal" style="max-width:720px;">
       <h2 id="courseModalTitle">新增课程</h2>
+      <div class="course-modal-tabs" id="courseModalTabs">
+        <button type="button" class="course-modal-tab active" data-course-tab="basic">基本信息</button>
+        <button type="button" class="course-modal-tab" data-course-tab="resources">资源管理</button>
+      </div>
       <form id="courseForm">
-        <input type="hidden" id="courseId" name="id" />
-        <div class="form-group">
-          <label for="courseSemesterId">所属学期</label>
-          <select id="courseSemesterId" name="semesterId" required>
-            <option value="">加载中...</option>
-          </select>
+        <div id="courseTabBasic" class="course-tab-content">
+          <input type="hidden" id="courseId" name="id" />
+          <div class="form-group">
+            <label for="courseSemesterId">所属学期</label>
+            <select id="courseSemesterId" name="semesterId" required>
+              <option value="">加载中...</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label for="code">课程代码</label>
+            <input type="text" id="code" name="code" required />
+          </div>
+          <div class="form-group">
+            <label for="name">课程名称</label>
+            <input type="text" id="name" name="name" required />
+          </div>
+          <div class="form-group">
+            <label for="credit">学分</label>
+            <input type="number" id="credit" name="credit" min="0" required />
+          </div>
+          <div class="form-group">
+            <label for="capacity">容量</label>
+            <input type="number" id="capacity" name="capacity" min="0" required />
+          </div>
+          <div class="form-group">
+            <label>授课教师（可多选）</label>
+            <div id="teacherCheckboxes" style="max-height:200px;overflow-y:auto;padding:12px;background:rgba(255,255,255,0.04);border:1px solid var(--bg-glass-border);border-radius:10px;">
+              <p style="color:var(--text-secondary);font-size:0.875rem;">暂无教师，请先在「教师管理」中添加</p>
+            </div>
+          </div>
         </div>
-        <div class="form-group">
-          <label for="code">课程代码</label>
-          <input type="text" id="code" name="code" required />
-        </div>
-        <div class="form-group">
-          <label for="name">课程名称</label>
-          <input type="text" id="name" name="name" required />
-        </div>
-        <div class="form-group">
-          <label for="credit">学分</label>
-          <input type="number" id="credit" name="credit" min="0" required />
-        </div>
-        <div class="form-group">
-          <label for="capacity">容量</label>
-          <input type="number" id="capacity" name="capacity" min="0" required />
-        </div>
-        <div class="form-group">
-          <label>授课教师（可多选）</label>
-          <div id="teacherCheckboxes" style="max-height:200px;overflow-y:auto;padding:12px;background:rgba(255,255,255,0.04);border:1px solid var(--bg-glass-border);border-radius:10px;">
-            <p style="color:var(--text-secondary);font-size:0.875rem;">暂无教师，请先在「教师管理」中添加</p>
+        <div id="courseTabResources" class="course-tab-content" style="display:none;">
+          <div class="resource-upload-area" id="resourceDropArea">
+            <div class="resource-upload-inner">
+              <div style="font-size:2.5rem;margin-bottom:8px;">📂</div>
+              <div style="font-weight:500;margin-bottom:4px;">拖拽文件到此处上传</div>
+              <div style="color:var(--text-secondary);font-size:0.875rem;">或点击选择文件（单文件最大 100MB）</div>
+              <input type="file" id="resourceFileInput" style="display:none;" multiple />
+            </div>
+          </div>
+          <div class="resource-search-bar">
+            <input type="text" id="resourceSearchInput" placeholder="按文件名搜索..." />
+          </div>
+          <div class="resource-list" id="resourceList">
+            <p style="text-align:center;color:var(--text-secondary);padding:24px;">请先保存课程后再上传资源</p>
           </div>
         </div>
         <div class="modal-actions">

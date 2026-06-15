@@ -148,3 +148,19 @@ CREATE TABLE IF NOT EXISTS course_evaluation (
 
 CREATE INDEX IF NOT EXISTS idx_eval_student ON course_evaluation(student_id);
 CREATE INDEX IF NOT EXISTS idx_eval_course ON course_evaluation(course_id);
+
+CREATE TABLE IF NOT EXISTS course_resource (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  course_id INTEGER NOT NULL,
+  file_name TEXT NOT NULL,
+  storage_path TEXT NOT NULL,
+  uploaded_by INTEGER NOT NULL,
+  uploader_name TEXT,
+  upload_time TEXT DEFAULT (datetime('now', 'localtime')),
+  file_size INTEGER NOT NULL DEFAULT 0,
+  download_count INTEGER NOT NULL DEFAULT 0,
+  FOREIGN KEY (course_id) REFERENCES course(id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_course_resource_course ON course_resource(course_id);
+CREATE INDEX IF NOT EXISTS idx_course_resource_uploader ON course_resource(uploaded_by);

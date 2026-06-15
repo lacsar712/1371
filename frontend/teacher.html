@@ -35,6 +35,10 @@
           <span class="nav-icon" aria-hidden="true">📝</span>
           <span>成绩录入</span>
         </a>
+        <a href="#" data-view="resources">
+          <span class="nav-icon" aria-hidden="true">📂</span>
+          <span>资源管理</span>
+        </a>
       </nav>
     </aside>
     <div class="admin-main">
@@ -117,6 +121,26 @@
             <tr><td colspan="7" style="text-align:center;color:var(--text-secondary);">加载中...</td></tr>
           </tbody>
         </table>
+      </div>
+
+      <section class="content-toolbar" id="resourceToolbar" style="display:none;">
+        <h2 class="toolbar-title" id="resourceListTitle">资源管理</h2>
+      </section>
+      <div id="resourceContent" style="display:none;padding:24px 0;">
+        <div class="resource-upload-area" id="teacherResourceDropArea">
+          <div class="resource-upload-inner">
+            <div style="font-size:2.5rem;margin-bottom:8px;">📂</div>
+            <div style="font-weight:500;margin-bottom:4px;">拖拽文件到此处上传</div>
+            <div style="color:var(--text-secondary);font-size:0.875rem;">或点击选择文件（单文件最大 100MB）</div>
+            <input type="file" id="teacherResourceFileInput" style="display:none;" multiple />
+          </div>
+        </div>
+        <div class="resource-search-bar">
+          <input type="text" id="teacherResourceSearchInput" placeholder="按文件名搜索..." />
+        </div>
+        <div class="resource-list" id="teacherResourceList">
+          <p style="text-align:center;color:var(--text-secondary);padding:24px;">请从左侧选择一门课程</p>
+        </div>
       </div>
 
       <div id="emptyState" style="padding:80px 24px;text-align:center;">
