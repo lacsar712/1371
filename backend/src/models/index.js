@@ -31,6 +31,7 @@ const Grade = require('./Grade')(sequelize);
 const CourseEvaluation = require('./CourseEvaluation')(sequelize);
 const Message = require('./Message')(sequelize);
 const CourseResource = require('./CourseResource')(sequelize);
+const Announcement = require('./Announcement')(sequelize);
 
 Semester.hasMany(Course, { foreignKey: 'semesterId', as: 'courses' });
 Course.belongsTo(Semester, { foreignKey: 'semesterId', as: 'semester' });
@@ -113,6 +114,7 @@ module.exports = {
   CourseEvaluation,
   Message,
   CourseResource,
+  Announcement,
   getCurrentSemester,
   resolveSemesterId,
 };

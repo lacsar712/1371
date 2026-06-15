@@ -177,6 +177,8 @@
   }
 
   function updateView() {
+    document.getElementById('announcementToolbar').style.display = 'none';
+    document.getElementById('announcementView').style.display = 'none';
     if (!currentCourseId) {
       document.getElementById('emptyState').style.display = '';
       document.getElementById('studentToolbar').style.display = 'none';
@@ -185,6 +187,11 @@
       document.getElementById('gradeTableWrap').style.display = 'none';
       document.getElementById('resourceToolbar').style.display = 'none';
       document.getElementById('resourceContent').style.display = 'none';
+      if (currentView === 'announcements') {
+        document.getElementById('emptyState').style.display = 'none';
+        document.getElementById('announcementToolbar').style.display = '';
+        document.getElementById('announcementView').style.display = '';
+      }
       return;
     }
     if (currentView === 'students') {
@@ -211,6 +218,16 @@
       document.getElementById('gradeTableWrap').style.display = 'none';
       document.getElementById('resourceToolbar').style.display = '';
       document.getElementById('resourceContent').style.display = '';
+    } else if (currentView === 'announcements') {
+      document.getElementById('emptyState').style.display = 'none';
+      document.getElementById('studentToolbar').style.display = 'none';
+      document.getElementById('studentTableWrap').style.display = 'none';
+      document.getElementById('gradeToolbar').style.display = 'none';
+      document.getElementById('gradeTableWrap').style.display = 'none';
+      document.getElementById('resourceToolbar').style.display = 'none';
+      document.getElementById('resourceContent').style.display = 'none';
+      document.getElementById('announcementToolbar').style.display = '';
+      document.getElementById('announcementView').style.display = '';
     }
   }
 
@@ -219,15 +236,13 @@
     document.querySelectorAll('.sidebar-nav a[data-view]').forEach((a) => {
       a.classList.toggle('active', a.dataset.view === view);
     });
-    if (!currentCourseId) {
-      document.getElementById('emptyState').style.display = '';
-      return;
-    }
     updateView();
-    if (view === 'grades') {
+    if (view === 'grades' && currentCourseId) {
       loadGrades();
-    } else if (view === 'resources') {
+    } else if (view === 'resources' && currentCourseId) {
       loadTeacherResources();
+    } else if (view === 'announcements') {
+      loadTeacherAnnouncements();
     }
   }
 
@@ -767,6 +782,152 @@
     }
   }
 
+  let teacherAnnCat = '';
+  let teacherAnnPage = 1;
+  const CATEGORY_MAP = { system: '系统通知', academic: '教务通知', activity: '活动通知' };
+  const CATEGORY_BADGE_CLASS = { system: 'announcement-cat-system', academic: 'announcement-cat-academic', activity: 'announcement-cat-activity' };
+
+  async function loadTeacherAnnouncements(page) {
+    page = page || 1;
+    teacherAnnPage = page;
+    const listEl = document.getElementById('teacherAnnList');
+    const keyword = document.getElementById('teacherAnnSearchKeyword').value.trim();
+    const params = new URLSearchParams();
+    params.set('page', page);
+    params.set('pageSize', '10');
+    if (teacherAnnCat) params.set('category', teacherAnnCat);
+    if (keyword) params.set('keyword', keyword);
+    const { data } = await api('/api/announcements?' + params.toString());
+    if (!data || !data.ok || !Array.isArray(data.data)) {
+      listEl.innerHTML = '<div style="text-align:center;color:var(--danger);padding:40px;">加载失败</div>';
+      return;
+    }
+    const announcements = data.data;
+    if (!announcements.length) {
+      listEl.innerHTML = '<div style="text-align:center;color:var(--text-secondary);padding:60px 20px;"><div style="font-size:3rem;opacity:0.3;margin-bottom:12px;">📢</div><div>暂无公告</div></div>';
+      document.getElementById('teacherAnnPagination').innerHTML = '';
+      return;
+    }
+    listEl.innerHTML = announcements.map((a) => `
+      <div class="announcement-card" data-id="${a.id}" style="cursor:pointer;">
+        <div class="announcement-card-header">
+          <div class="announcement-card-title">
+            ${a.isPinned ? '<span style="color:#f59e0b;margin-right:6px;">📌</span>' : ''}
+            ${escapeHtml(a.title)}
+          </div>
+          <span class="announcement-cat-badge ${CATEGORY_BADGE_CLASS[a.category] || ''}">${CATEGORY_MAP[a.category] || a.category}</span>
+        </div>
+        <div class="announcement-card-meta">
+          <span>发布人：${escapeHtml(a.publisherName)}</span>
+          <span>阅读：${a.viewCount}</span>
+          <span>${formatDate(a.publishedAt)}</span>
+        </div>
+      </div>
+    `).join('');
+    listEl.querySelectorAll('.announcement-card').forEach((card) => {
+      card.addEventListener('click', () => openTeacherAnnDetail(parseInt(card.dataset.id, 10)));
+    });
+    renderTeacherAnnPagination(data.pagination || { total: 0, page, pageSize: 10, totalPages: 0 });
+  }
+
+  function renderTeacherAnnPagination(pagination) {
+    const el = document.getElementById('teacherAnnPagination');
+    if (!el) return;
+    const totalPages = pagination.totalPages || 0;
+    const current = pagination.page || 1;
+    if (totalPages <= 1) { el.innerHTML = ''; return; }
+    let html = '<button type="button" class="msg-page-btn" data-pg="prev" ' + (current <= 1 ? 'disabled' : '') + '>‹</button>';
+    const pages = [];
+    const addPage = function (p) {
+      if (pages.length && pages[pages.length - 1] === '...' && p === '...') return;
+      pages.push(p);
+    };
+    addPage(1);
+    const start = Math.max(2, current - 2);
+    const end = Math.min(totalPages - 1, current + 2);
+    if (start > 2) addPage('...');
+    for (let i = start; i <= end; i++) addPage(i);
+    if (end < totalPages - 1) addPage('...');
+    if (totalPages > 1) addPage(totalPages);
+    for (let i = 0; i < pages.length; i++) {
+      const p = pages[i];
+      if (p === '...') {
+        html += '<span style="padding:0 4px;color:var(--text-secondary);opacity:0.5;">...</span>';
+      } else {
+        html += '<button type="button" class="msg-page-btn' + (p === current ? ' active' : '') + '" data-pg="' + p + '">' + p + '</button>';
+      }
+    }
+    html += '<button type="button" class="msg-page-btn" data-pg="next" ' + (current >= totalPages ? 'disabled' : '') + '>›</button>';
+    el.innerHTML = html;
+    el.querySelectorAll('.msg-page-btn').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        let target = btn.dataset.pg;
+        if (target === 'prev') target = current - 1;
+        else if (target === 'next') target = current + 1;
+        else target = parseInt(target, 10);
+        if (target >= 1 && target <= totalPages) loadTeacherAnnouncements(target);
+      });
+    });
+  }
+
+  async function openTeacherAnnDetail(id) {
+    const overlay = document.getElementById('teacherAnnDetailOverlay');
+    const titleEl = document.getElementById('teacherAnnDetailTitle');
+    const metaEl = document.getElementById('teacherAnnDetailMeta');
+    const contentEl = document.getElementById('teacherAnnDetailContent');
+    titleEl.textContent = '加载中...';
+    metaEl.innerHTML = '';
+    contentEl.innerHTML = '';
+    overlay.classList.add('show');
+    const { data } = await api('/api/announcements/' + id);
+    if (!data || !data.ok || !data.data) {
+      titleEl.textContent = '加载失败';
+      contentEl.innerHTML = '<p style="color:var(--danger);text-align:center;padding:40px;">无法加载公告</p>';
+      return;
+    }
+    const a = data.data;
+    titleEl.textContent = a.title;
+    metaEl.innerHTML = `
+      <div style="display:flex;flex-wrap:wrap;gap:12px 24px;font-size:0.875rem;margin-bottom:16px;">
+        <span style="color:var(--text-secondary);">发布人：<span style="color:var(--text-primary);font-weight:500;">${escapeHtml(a.publisherName)}</span></span>
+        <span><span class="announcement-cat-badge ${CATEGORY_BADGE_CLASS[a.category] || ''}">${CATEGORY_MAP[a.category] || a.category}</span></span>
+        <span style="color:var(--text-secondary);">阅读：<span style="color:var(--text-primary);font-weight:500;">${a.viewCount}</span></span>
+        <span style="color:var(--text-secondary);">${formatDate(a.publishedAt)}</span>
+      </div>
+    `;
+    contentEl.innerHTML = a.content || '<p style="color:var(--text-secondary);">暂无正文</p>';
+  }
+
+  function initTeacherAnnouncementCenter() {
+    document.querySelectorAll('#teacherAnnCatTabs .announcement-cat-tab').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        teacherAnnCat = btn.dataset.cat;
+        document.querySelectorAll('#teacherAnnCatTabs .announcement-cat-tab').forEach((b) => {
+          b.classList.toggle('active', b.dataset.cat === teacherAnnCat);
+        });
+        loadTeacherAnnouncements(1);
+      });
+    });
+    const searchInput = document.getElementById('teacherAnnSearchKeyword');
+    if (searchInput) {
+      searchInput.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') loadTeacherAnnouncements(1);
+      });
+    }
+    const closeBtn = document.getElementById('teacherAnnDetailClose');
+    if (closeBtn) {
+      closeBtn.addEventListener('click', () => {
+        document.getElementById('teacherAnnDetailOverlay').classList.remove('show');
+      });
+    }
+    const overlay = document.getElementById('teacherAnnDetailOverlay');
+    if (overlay) {
+      overlay.addEventListener('click', (e) => {
+        if (e.target === overlay) overlay.classList.remove('show');
+      });
+    }
+  }
+
   function init() {
     user = getStoredUser();
     if (!user) {
@@ -780,6 +941,7 @@
     }
 
     bindTeacherResourceEvents();
+    initTeacherAnnouncementCenter();
 
     document.getElementById('searchStudentBtn').addEventListener('click', loadStudents);
     document.getElementById('studentKeyword').addEventListener('keydown', (e) => {

@@ -164,3 +164,19 @@ CREATE TABLE IF NOT EXISTS course_resource (
 
 CREATE INDEX IF NOT EXISTS idx_course_resource_course ON course_resource(course_id);
 CREATE INDEX IF NOT EXISTS idx_course_resource_uploader ON course_resource(uploaded_by);
+
+CREATE TABLE IF NOT EXISTS announcement (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  title TEXT NOT NULL,
+  content TEXT NOT NULL,
+  category TEXT NOT NULL DEFAULT 'system',
+  publisher_id INTEGER NOT NULL,
+  publisher_name TEXT NOT NULL,
+  is_pinned INTEGER NOT NULL DEFAULT 0,
+  view_count INTEGER NOT NULL DEFAULT 0,
+  published_at TEXT DEFAULT (datetime('now', 'localtime'))
+);
+
+CREATE INDEX IF NOT EXISTS idx_announcement_category ON announcement(category);
+CREATE INDEX IF NOT EXISTS idx_announcement_pinned ON announcement(is_pinned);
+CREATE INDEX IF NOT EXISTS idx_announcement_published ON announcement(published_at);

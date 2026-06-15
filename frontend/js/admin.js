@@ -55,6 +55,7 @@
     document.getElementById('page-classrooms').style.display = page === 'classrooms' ? '' : 'none';
     document.getElementById('page-scheduling').style.display = page === 'scheduling' ? '' : 'none';
     document.getElementById('page-evaluations').style.display = page === 'evaluations' ? '' : 'none';
+    document.getElementById('page-announcements').style.display = page === 'announcements' ? '' : 'none';
     const title = document.getElementById('pageTitle');
     const subtitle = document.getElementById('pageSubtitle');
     if (page === 'semesters') {
@@ -82,6 +83,10 @@
       title.textContent = '评教总览';
       subtitle.textContent = '查看各课程评教汇总与明细';
       loadEvalOverview();
+    } else if (page === 'announcements') {
+      title.textContent = '公告管理';
+      subtitle.textContent = '发布、编辑、删除全站公告';
+      loadAnnouncements();
     } else {
       title.textContent = '教师管理';
       subtitle.textContent = '管理教师基本信息与所属学院';
@@ -1874,6 +1879,221 @@
       });
     }
   }
+
+  // ========== 公告管理 ==========
+  let allAnnouncements = [];
+  let announcementPage = 1;
+
+  const CATEGORY_MAP = { system: '系统通知', academic: '教务通知', activity: '活动通知' };
+  const CATEGORY_BADGE_CLASS = { system: 'announcement-cat-system', academic: 'announcement-cat-academic', activity: 'announcement-cat-activity' };
+
+  async function loadAnnouncements(page) {
+    page = page || 1;
+    announcementPage = page;
+    const tbody = document.getElementById('announcementTableBody');
+    const category = document.getElementById('announcementCategoryFilter').value;
+    const keyword = document.getElementById('announcementKeyword').value.trim();
+    const params = new URLSearchParams();
+    params.set('page', page);
+    params.set('pageSize', '10');
+    if (category) params.set('category', category);
+    if (keyword) params.set('keyword', keyword);
+    const qs = params.toString();
+    const { data } = await api('/api/announcements?' + qs);
+    if (!data || !data.ok || !Array.isArray(data.data)) {
+      tbody.innerHTML = '<tr><td colspan="8" style="text-align:center;color:var(--danger);">加载失败</td></tr>';
+      return;
+    }
+    allAnnouncements = data.data;
+    if (!allAnnouncements.length) {
+      tbody.innerHTML = '<tr><td colspan="8" style="text-align:center;color:var(--text-secondary);">暂无公告</td></tr>';
+      renderAnnouncementPagination({ total: 0, page: 1, pageSize: 10, totalPages: 0 });
+      return;
+    }
+    tbody.innerHTML = allAnnouncements.map((a) => `
+      <tr>
+        <td>${a.id}</td>
+        <td style="font-weight:600;max-width:240px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${a.isPinned ? '<span style="color:#f59e0b;margin-right:4px;">📌</span>' : ''}${escapeHtml(a.title)}</td>
+        <td><span class="announcement-cat-badge ${CATEGORY_BADGE_CLASS[a.category] || ''}">${CATEGORY_MAP[a.category] || a.category}</span></td>
+        <td>${escapeHtml(a.publisherName)}</td>
+        <td>${a.isPinned ? '<span style="color:#f59e0b;font-weight:600;">是</span>' : '否'}</td>
+        <td>${a.viewCount}</td>
+        <td style="white-space:nowrap;">${formatDateTime(a.publishedAt)}</td>
+        <td>
+          <button type="button" class="btn btn-ghost btn-sm edit-announcement-btn" data-id="${a.id}">编辑</button>
+          <button type="button" class="btn btn-ghost btn-sm pin-announcement-btn" data-id="${a.id}" style="color:${a.isPinned ? 'var(--text-secondary)' : '#f59e0b'};">${a.isPinned ? '取消置顶' : '置顶'}</button>
+          <button type="button" class="btn btn-danger btn-sm delete-announcement-btn" data-id="${a.id}">删除</button>
+        </td>
+      </tr>`
+    ).join('');
+    tbody.querySelectorAll('.edit-announcement-btn').forEach((btn) => {
+      btn.addEventListener('click', () => openAnnouncementEdit(parseInt(btn.dataset.id, 10)));
+    });
+    tbody.querySelectorAll('.pin-announcement-btn').forEach((btn) => {
+      btn.addEventListener('click', () => toggleAnnouncementPin(parseInt(btn.dataset.id, 10)));
+    });
+    tbody.querySelectorAll('.delete-announcement-btn').forEach((btn) => {
+      btn.addEventListener('click', () => deleteAnnouncement(parseInt(btn.dataset.id, 10)));
+    });
+    renderAnnouncementPagination(data.pagination || { total: 0, page, pageSize: 10, totalPages: 0 });
+  }
+
+  function renderAnnouncementPagination(pagination) {
+    const el = document.getElementById('announcementPagination');
+    if (!el) return;
+    const totalPages = pagination.totalPages || 0;
+    const current = pagination.page || 1;
+    if (totalPages <= 1) { el.innerHTML = ''; return; }
+    let html = '<button type="button" class="msg-page-btn" data-pg="prev" ' + (current <= 1 ? 'disabled' : '') + '>‹</button>';
+    const pages = [];
+    const addPage = function (p) {
+      if (pages.length && pages[pages.length - 1] === '...' && p === '...') return;
+      pages.push(p);
+    };
+    addPage(1);
+    const start = Math.max(2, current - 2);
+    const end = Math.min(totalPages - 1, current + 2);
+    if (start > 2) addPage('...');
+    for (let i = start; i <= end; i++) addPage(i);
+    if (end < totalPages - 1) addPage('...');
+    if (totalPages > 1) addPage(totalPages);
+    for (let i = 0; i < pages.length; i++) {
+      const p = pages[i];
+      if (p === '...') {
+        html += '<span style="padding:0 4px;color:var(--text-secondary);opacity:0.5;">...</span>';
+      } else {
+        html += '<button type="button" class="msg-page-btn' + (p === current ? ' active' : '') + '" data-pg="' + p + '">' + p + '</button>';
+      }
+    }
+    html += '<button type="button" class="msg-page-btn" data-pg="next" ' + (current >= totalPages ? 'disabled' : '') + '>›</button>';
+    el.innerHTML = html;
+    el.querySelectorAll('.msg-page-btn').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        let target = btn.dataset.pg;
+        if (target === 'prev') target = current - 1;
+        else if (target === 'next') target = current + 1;
+        else target = parseInt(target, 10);
+        if (target >= 1 && target <= totalPages) loadAnnouncements(target);
+      });
+    });
+  }
+
+  const announcementModal = document.getElementById('announcementModalOverlay');
+  const announcementForm = document.getElementById('announcementForm');
+
+  function openAnnouncementAdd() {
+    document.getElementById('announcementEditId').value = '';
+    document.getElementById('announcementTitle').value = '';
+    document.getElementById('announcementCategory').value = 'system';
+    document.getElementById('rteEditor').innerHTML = '';
+    document.getElementById('announcementModalTitle').textContent = '发布公告';
+    announcementForm.querySelector('[type="submit"]').textContent = '发布';
+    announcementModal.classList.remove('modal-editing');
+    announcementModal.classList.add('show');
+  }
+
+  function openAnnouncementEdit(id) {
+    const a = allAnnouncements.find((x) => x.id === id);
+    if (!a) return;
+    document.getElementById('announcementEditId').value = id;
+    document.getElementById('announcementTitle').value = a.title;
+    document.getElementById('announcementCategory').value = a.category;
+    document.getElementById('announcementModalTitle').textContent = '编辑公告';
+    announcementForm.querySelector('[type="submit"]').textContent = '保存';
+    (async () => {
+      const { data } = await api('/api/announcements/' + id);
+      if (data && data.ok && data.data) {
+        document.getElementById('rteEditor').innerHTML = data.data.content || '';
+      }
+    })();
+    announcementModal.classList.add('modal-editing', 'show');
+  }
+
+  function closeAnnouncementModal() {
+    announcementModal.classList.remove('show');
+  }
+
+  async function deleteAnnouncement(id) {
+    if (!confirm('确定删除该公告？')) return;
+    const headers = { 'X-User': encodeURIComponent(JSON.stringify(user)) };
+    const { data } = await api('/api/announcements/' + id, { method: 'DELETE', headers });
+    if (data && data.ok) {
+      showToast('已删除', 'success');
+      loadAnnouncements(announcementPage);
+    } else {
+      showToast((data && data.message) || '删除失败', 'error');
+    }
+  }
+
+  async function toggleAnnouncementPin(id) {
+    const headers = { 'X-User': encodeURIComponent(JSON.stringify(user)) };
+    const { data } = await api('/api/announcements/' + id + '/pin', { method: 'PUT', headers });
+    if (data && data.ok) {
+      showToast(data.message || '操作成功', 'success');
+      loadAnnouncements(announcementPage);
+    } else {
+      showToast((data && data.message) || '操作失败', 'error');
+    }
+  }
+
+  announcementForm.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const id = document.getElementById('announcementEditId').value.trim();
+    const title = document.getElementById('announcementTitle').value.trim();
+    const category = document.getElementById('announcementCategory').value;
+    const content = document.getElementById('rteEditor').innerHTML.trim();
+    if (!title) { showToast('请输入标题', 'error'); return; }
+    if (!content) { showToast('请输入正文', 'error'); return; }
+    const payload = { title, content, category };
+    const headers = { 'X-User': encodeURIComponent(JSON.stringify(user)) };
+    if (id) {
+      const { data } = await api('/api/announcements/' + id, { method: 'PUT', body: JSON.stringify(payload), headers });
+      if (data && data.ok) {
+        showToast('更新成功', 'success');
+        closeAnnouncementModal();
+        loadAnnouncements(announcementPage);
+      } else {
+        showToast((data && data.message) || '更新失败', 'error');
+      }
+    } else {
+      const { data } = await api('/api/announcements', { method: 'POST', body: JSON.stringify(payload), headers });
+      if (data && data.ok) {
+        showToast('发布成功', 'success');
+        closeAnnouncementModal();
+        loadAnnouncements(1);
+      } else {
+        showToast((data && data.message) || '发布失败', 'error');
+      }
+    }
+  });
+
+  document.getElementById('announcementModalCancel').addEventListener('click', closeAnnouncementModal);
+  announcementModal.addEventListener('click', (e) => {
+    if (e.target === announcementModal) closeAnnouncementModal();
+  });
+  document.getElementById('addAnnouncementBtn').addEventListener('click', openAnnouncementAdd);
+  document.getElementById('searchAnnouncementBtn').addEventListener('click', () => loadAnnouncements(1));
+  document.getElementById('announcementKeyword').addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') loadAnnouncements(1);
+  });
+  document.getElementById('announcementCategoryFilter').addEventListener('change', () => loadAnnouncements(1));
+
+  document.getElementById('rteToolbar').addEventListener('click', (e) => {
+    const btn = e.target.closest('.rte-btn');
+    if (!btn) return;
+    e.preventDefault();
+    const cmd = btn.dataset.cmd;
+    const val = btn.dataset.value || null;
+    if (cmd === 'createLink') {
+      const url = prompt('请输入链接地址：', 'https://');
+      if (url) document.execCommand(cmd, false, url);
+    } else if (cmd === 'formatBlock') {
+      document.execCommand(cmd, false, '<' + val + '>');
+    } else {
+      document.execCommand(cmd, false, val);
+    }
+    document.getElementById('rteEditor').focus();
+  });
 
   // ========== 导航绑定 ==========
   document.querySelectorAll('.sidebar-nav a').forEach((a) => {

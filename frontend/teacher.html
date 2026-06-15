@@ -39,6 +39,10 @@
           <span class="nav-icon" aria-hidden="true">📂</span>
           <span>资源管理</span>
         </a>
+        <a href="#" data-view="announcements">
+          <span class="nav-icon" aria-hidden="true">📢</span>
+          <span>公告中心</span>
+        </a>
       </nav>
     </aside>
     <div class="admin-main">
@@ -148,11 +152,45 @@
         <p style="font-size:1.125rem;color:var(--text-secondary);">请从左侧选择一门课程</p>
         <p style="font-size:0.875rem;color:var(--text-secondary);margin-top:8px;">选择课程后即可查看选课学生名单</p>
       </div>
+
+      <section class="content-toolbar" id="announcementToolbar" style="display:none;">
+        <h2 class="toolbar-title">公告中心</h2>
+      </section>
+      <div id="announcementView" style="display:none;padding:24px 0;">
+        <div class="announcement-filter-bar">
+          <div class="announcement-cat-tabs" id="teacherAnnCatTabs">
+            <button type="button" class="announcement-cat-tab active" data-cat="">全部</button>
+            <button type="button" class="announcement-cat-tab" data-cat="system">系统通知</button>
+            <button type="button" class="announcement-cat-tab" data-cat="academic">教务通知</button>
+            <button type="button" class="announcement-cat-tab" data-cat="activity">活动通知</button>
+          </div>
+          <div class="announcement-search">
+            <input type="text" id="teacherAnnSearchKeyword" placeholder="搜索公告标题" />
+          </div>
+        </div>
+        <div class="announcement-list" id="teacherAnnList">
+          <div style="text-align:center;color:var(--text-secondary);padding:40px;">加载中...</div>
+        </div>
+        <div id="teacherAnnPagination" class="msg-pagination"></div>
+      </div>
       </div>
     </div>
   </div>
 
   <div id="toast" class="toast" role="alert" aria-live="polite"></div>
+
+  <!-- 公告详情弹窗 -->
+  <div id="teacherAnnDetailOverlay" class="modal-overlay">
+    <div class="modal" style="max-width:720px;">
+      <h2 id="teacherAnnDetailTitle">公告详情</h2>
+      <div id="teacherAnnDetailMeta" class="announcement-detail-meta"></div>
+      <div id="teacherAnnDetailContent" class="announcement-detail-content" style="max-height:60vh;overflow-y:auto;"></div>
+      <div class="modal-actions" style="padding:0 32px 24px;">
+        <button type="button" class="btn btn-ghost" id="teacherAnnDetailClose">关闭</button>
+      </div>
+    </div>
+  </div>
+
   <script src="js/messages.js"></script>
   <script src="js/teacher.js"></script>
 </body>

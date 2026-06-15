@@ -17,6 +17,7 @@
       <div class="student-tabs">
         <button type="button" class="student-tab active" data-tab="courses">课程中心</button>
         <button type="button" class="student-tab" data-tab="grades">我的成绩</button>
+        <button type="button" class="student-tab" data-tab="announcements">公告中心</button>
       </div>
       <div class="semester-selector" id="coursesSemesterSelector">
         <label for="studentSemesterSelect" class="semester-selector-label">学期</label>
@@ -122,6 +123,26 @@
         </div>
       </section>
     </div>
+
+    <div id="announcementsView" style="display:none;">
+      <section>
+        <div class="announcement-filter-bar">
+          <div class="announcement-cat-tabs" id="announcementCatTabs">
+            <button type="button" class="announcement-cat-tab active" data-cat="">全部</button>
+            <button type="button" class="announcement-cat-tab" data-cat="system">系统通知</button>
+            <button type="button" class="announcement-cat-tab" data-cat="academic">教务通知</button>
+            <button type="button" class="announcement-cat-tab" data-cat="activity">活动通知</button>
+          </div>
+          <div class="announcement-search">
+            <input type="text" id="announcementSearchKeyword" placeholder="搜索公告标题" />
+          </div>
+        </div>
+        <div class="announcement-list" id="announcementList">
+          <div style="text-align:center;color:var(--text-secondary);padding:40px;">加载中...</div>
+        </div>
+        <div id="announcementListPagination" class="msg-pagination"></div>
+      </section>
+    </div>
   </main>
   <div id="toast" class="toast" role="alert" aria-live="polite"></div>
   <!-- 退课确认弹框（非原生） -->
@@ -199,6 +220,19 @@
       </div>
     </div>
   </div>
+
+  <!-- 公告详情弹窗 -->
+  <div id="announcementDetailOverlay" class="modal-overlay">
+    <div class="modal" style="max-width:720px;">
+      <h2 id="announcementDetailTitle">公告详情</h2>
+      <div id="announcementDetailMeta" class="announcement-detail-meta"></div>
+      <div id="announcementDetailContent" class="announcement-detail-content" style="max-height:60vh;overflow-y:auto;"></div>
+      <div class="modal-actions" style="padding:0 32px 24px;">
+        <button type="button" class="btn btn-ghost" id="announcementDetailClose">关闭</button>
+      </div>
+    </div>
+  </div>
+
   <script src="js/messages.js"></script>
   <script src="js/student.js"></script>
 </body>
