@@ -5,6 +5,7 @@ WORKDIR /usr/share/nginx/html
 COPY index.html ./index.html
 COPY admin.html ./admin.html
 COPY student.html ./student.html
+COPY teacher.html ./teacher.html
 COPY css ./css
 COPY js ./js
 
