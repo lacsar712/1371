@@ -10,6 +10,12 @@ module.exports = (sequelize) => {
       semesterId: { type: DataTypes.INTEGER, allowNull: false, field: 'semester_id' },
       enrolledAt: { type: DataTypes.DATE, defaultValue: DataTypes.NOW, field: 'enrolled_at' },
     },
-    { tableName: 'enrollment', timestamps: false }
+    {
+      tableName: 'enrollment',
+      timestamps: false,
+      indexes: [
+        { unique: true, fields: ['student_id', 'course_id', 'semester_id'] },
+      ],
+    }
   );
 };

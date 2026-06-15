@@ -1,7 +1,8 @@
 const express = require('express');
 const { body, param, validationResult } = require('express-validator');
 const router = express.Router();
-const { Course, Enrollment, Schedule, Classroom, resolveSemesterId, Semester } = require('../models');
+const { resolveSemesterId } = require('../models');
+const { getStudentCourses, enrollStudent, dropCourse } = require('../services/enrollmentService');
 const logger = require('../logger');
 
 router.get('/:id/courses', param('id').isInt({ min: 1 }).withMessage('无效的学生 ID'), async (req, res) => {
@@ -10,33 +11,7 @@ router.get('/:id/courses', param('id').isInt({ min: 1 }).withMessage('无效的�
   const studentId = parseInt(req.params.id, 10);
   try {
     const semesterId = await resolveSemesterId(req.query.semesterId);
-    const where = { studentId };
-    if (semesterId) where.semesterId = semesterId;
-    const rows = await Enrollment.findAll({
-      where,
-      include: [{
-        model: Course,
-        as: 'Course',
-        attributes: ['id', 'code', 'name', 'credit', 'capacity'],
-        include: [{
-          model: Schedule,
-          as: 'schedules',
-          attributes: ['id', 'dayOfWeek', 'startPeriod', 'endPeriod'],
-          include: [{ model: Classroom, as: 'classroom', attributes: ['id', 'building', 'roomNumber'] }],
-        }],
-      }],
-      order: [['enrolledAt', 'ASC']],
-    });
-    const data = rows.map((r) => {
-      const obj = { ...r.Course.toJSON(), enrolled_at: r.enrolledAt };
-      obj.location = (obj.schedules || []).map((s) => {
-        const dayNames = ['', '周一', '周二', '周三', '周四', '周五', '周六', '周日'];
-        const day = dayNames[s.dayOfWeek] || '';
-        const room = s.classroom ? `${s.classroom.building} ${s.classroom.roomNumber}` : '';
-        return `${day} 第${s.startPeriod}-${s.endPeriod}节 ${room}`;
-      }).join('；');
-      return obj;
-    });
+    const data = await getStudentCourses(studentId, semesterId);
     return res.set('Content-Type', 'application/json; charset=utf-8').json({ ok: true, data });
   } catch (e) {
     logger.error('Student courses error', { error: e.message });
@@ -55,17 +30,9 @@ router.post('/:id/enroll', enrollValidators, async (req, res) => {
   const studentId = parseInt(req.params.id, 10);
   const courseId = parseInt(req.body.courseId, 10);
   try {
-    const course = await Course.findByPk(courseId, { attributes: ['id', 'capacity', 'semesterId'] });
-    if (!course) return res.status(404).json({ ok: false, message: '课程不存在' });
-    const semesterId = course.semesterId;
-    const enrolled = await Enrollment.count({ where: { courseId, semesterId } });
-    if (enrolled >= course.capacity) return res.status(400).json({ ok: false, message: '课程已满' });
-    const exists = await Enrollment.findOne({ where: { studentId, courseId, semesterId } });
-    if (exists) return res.status(400).json({ ok: false, message: '已选过该课程' });
-    await Enrollment.create({ studentId, courseId, semesterId });
-    return res.set('Content-Type', 'application/json; charset=utf-8').json({ ok: true, message: '选课成功' });
+    const result = await enrollStudent(studentId, courseId);
+    return res.status(result.status).set('Content-Type', 'application/json; charset=utf-8').json({ ok: result.ok, message: result.message });
   } catch (e) {
-    if (e.name === 'SequelizeUniqueConstraintError') return res.status(400).json({ ok: false, message: '已选过该课程' });
     logger.error('Enroll error', { error: e.message });
     return res.status(500).json({ ok: false, message: '服务器错误' });
   }
@@ -78,11 +45,8 @@ router.delete('/:id/enroll/:courseId', param('id').isInt({ min: 1 }), param('cou
   const courseId = parseInt(req.params.courseId, 10);
   try {
     const semesterId = await resolveSemesterId(req.query.semesterId);
-    const where = { studentId, courseId };
-    if (semesterId) where.semesterId = semesterId;
-    const n = await Enrollment.destroy({ where });
-    if (n === 0) return res.status(404).json({ ok: false, message: '未找到选课记录' });
-    return res.set('Content-Type', 'application/json; charset=utf-8').json({ ok: true, message: '退课成功' });
+    const result = await dropCourse(studentId, courseId, semesterId);
+    return res.status(result.status).set('Content-Type', 'application/json; charset=utf-8').json({ ok: result.ok, message: result.message });
   } catch (e) {
     logger.error('Drop course error', { error: e.message });
     return res.status(500).json({ ok: false, message: '服务器错误' });
