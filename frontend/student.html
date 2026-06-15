@@ -18,6 +18,7 @@
         <button type="button" class="student-tab active" data-tab="courses">课程中心</button>
         <button type="button" class="student-tab" data-tab="grades">我的成绩</button>
         <button type="button" class="student-tab" data-tab="announcements">公告中心</button>
+        <button type="button" class="student-tab" data-tab="questionnaires">问卷<span id="questionnaireBadge" class="qz-tab-badge" style="display:none;"></span></button>
       </div>
       <div class="semester-selector" id="coursesSemesterSelector">
         <label for="studentSemesterSelect" class="semester-selector-label">学期</label>
@@ -141,6 +142,36 @@
           <div style="text-align:center;color:var(--text-secondary);padding:40px;">加载中...</div>
         </div>
         <div id="announcementListPagination" class="msg-pagination"></div>
+      </section>
+    </div>
+
+    <div id="questionnairesView" style="display:none;">
+      <section>
+        <div class="qz-student-section">
+          <h2 class="section-title">待填写</h2>
+          <div id="qzAvailableList" class="qz-student-list">
+            <div style="text-align:center;color:var(--text-secondary);padding:40px;">加载中...</div>
+          </div>
+        </div>
+        <div class="qz-student-section" style="margin-top:36px;">
+          <h2 class="section-title">已填写</h2>
+          <div id="qzAnsweredList" class="qz-student-list">
+            <div style="text-align:center;color:var(--text-secondary);padding:40px;">暂无</div>
+          </div>
+        </div>
+        <div class="qz-student-section" style="margin-top:36px;">
+          <h2 class="section-title">已截止</h2>
+          <div id="qzExpiredList" class="qz-student-list">
+            <div style="text-align:center;color:var(--text-secondary);padding:40px;">暂无</div>
+          </div>
+        </div>
+      </section>
+    </div>
+
+    <div id="questionnaireFillView" style="display:none;">
+      <section>
+        <button type="button" class="btn btn-ghost" id="qzBackToListBtn" style="margin-bottom:20px;">← 返回问卷列表</button>
+        <div id="qzFillContent"></div>
       </section>
     </div>
   </main>

@@ -32,6 +32,10 @@ const CourseEvaluation = require('./CourseEvaluation')(sequelize);
 const Message = require('./Message')(sequelize);
 const CourseResource = require('./CourseResource')(sequelize);
 const Announcement = require('./Announcement')(sequelize);
+const Questionnaire = require('./Questionnaire')(sequelize);
+const Question = require('./Question')(sequelize);
+const QuestionnaireResponse = require('./QuestionnaireResponse')(sequelize);
+const QuestionAnswer = require('./QuestionAnswer')(sequelize);
 
 Semester.hasMany(Course, { foreignKey: 'semesterId', as: 'courses' });
 Course.belongsTo(Semester, { foreignKey: 'semesterId', as: 'semester' });
@@ -83,6 +87,17 @@ CourseEvaluation.belongsTo(Course, { foreignKey: 'courseId', as: 'course' });
 Course.hasMany(CourseResource, { foreignKey: 'courseId', as: 'resources' });
 CourseResource.belongsTo(Course, { foreignKey: 'courseId', as: 'course' });
 
+Questionnaire.hasMany(Question, { foreignKey: 'questionnaireId', as: 'questions' });
+Question.belongsTo(Questionnaire, { foreignKey: 'questionnaireId', as: 'questionnaire' });
+Questionnaire.hasMany(QuestionnaireResponse, { foreignKey: 'questionnaireId', as: 'responses' });
+QuestionnaireResponse.belongsTo(Questionnaire, { foreignKey: 'questionnaireId', as: 'questionnaire' });
+Student.hasMany(QuestionnaireResponse, { foreignKey: 'studentId', as: 'questionnaireResponses' });
+QuestionnaireResponse.belongsTo(Student, { foreignKey: 'studentId', as: 'student' });
+QuestionnaireResponse.hasMany(QuestionAnswer, { foreignKey: 'responseId', as: 'answers' });
+QuestionAnswer.belongsTo(QuestionnaireResponse, { foreignKey: 'responseId', as: 'response' });
+Question.hasMany(QuestionAnswer, { foreignKey: 'questionId', as: 'answers' });
+QuestionAnswer.belongsTo(Question, { foreignKey: 'questionId', as: 'question' });
+
 async function getCurrentSemester() {
   return await Semester.findOne({ where: { isCurrent: true } });
 }
@@ -115,6 +130,10 @@ module.exports = {
   Message,
   CourseResource,
   Announcement,
+  Questionnaire,
+  Question,
+  QuestionnaireResponse,
+  QuestionAnswer,
   getCurrentSemester,
   resolveSemesterId,
 };

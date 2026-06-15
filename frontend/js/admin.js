@@ -56,6 +56,7 @@
     document.getElementById('page-scheduling').style.display = page === 'scheduling' ? '' : 'none';
     document.getElementById('page-evaluations').style.display = page === 'evaluations' ? '' : 'none';
     document.getElementById('page-announcements').style.display = page === 'announcements' ? '' : 'none';
+    document.getElementById('page-questionnaires').style.display = page === 'questionnaires' ? '' : 'none';
     const title = document.getElementById('pageTitle');
     const subtitle = document.getElementById('pageSubtitle');
     if (page === 'semesters') {
@@ -87,6 +88,10 @@
       title.textContent = '公告管理';
       subtitle.textContent = '发布、编辑、删除全站公告';
       loadAnnouncements();
+    } else if (page === 'questionnaires') {
+      title.textContent = '问卷管理';
+      subtitle.textContent = '创建、发布问卷，查看作答统计';
+      loadQuestionnaires();
     } else {
       title.textContent = '教师管理';
       subtitle.textContent = '管理教师基本信息与所属学院';
@@ -2093,6 +2098,498 @@
       document.execCommand(cmd, false, val);
     }
     document.getElementById('rteEditor').focus();
+  });
+
+  // ========== 问卷管理 ==========
+  let allQuestionnaires = [];
+  let qzWizardStep = 0;
+  let qzDraftQuestions = [];
+  let qzEditId = null;
+
+  async function loadQuestionnaires() {
+    const tbody = document.getElementById('questionnaireTableBody');
+    const { data } = await api('/api/questionnaires/admin');
+    if (!data || !data.ok || !Array.isArray(data.data)) {
+      tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;color:var(--danger);">加载失败</td></tr>';
+      return;
+    }
+    allQuestionnaires = data.data;
+    if (!allQuestionnaires.length) {
+      tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;color:var(--text-secondary);">暂无问卷</td></tr>';
+      return;
+    }
+    tbody.innerHTML = allQuestionnaires.map((q) => `
+      <tr>
+        <td>${q.id}</td>
+        <td style="font-weight:600;">${escapeHtml(q.title)}</td>
+        <td>${q.questionCount || 0}</td>
+        <td style="white-space:nowrap;">${q.startTime ? new Date(q.startTime).toLocaleString('zh-CN') : ''}</td>
+        <td style="white-space:nowrap;">${q.endTime ? new Date(q.endTime).toLocaleString('zh-CN') : ''}</td>
+        <td>${qzStatusLabel(q.computedStatus || q.status)}</td>
+        <td>
+          ${q.status === 'draft' ? `<button type="button" class="btn btn-ghost btn-sm edit-qz-btn" data-id="${q.id}">编辑</button>` : ''}
+          ${q.status === 'draft' ? `<button type="button" class="btn btn-ghost btn-sm publish-qz-btn" data-id="${q.id}" style="color:var(--success);">发布</button>` : ''}
+          <button type="button" class="btn btn-ghost btn-sm stats-qz-btn" data-id="${q.id}">统计</button>
+          <button type="button" class="btn btn-danger btn-sm delete-qz-btn" data-id="${q.id}">删除</button>
+        </td>
+      </tr>`
+    ).join('');
+    tbody.querySelectorAll('.edit-qz-btn').forEach((btn) => {
+      btn.addEventListener('click', () => openQuestionnaireEdit(parseInt(btn.dataset.id, 10)));
+    });
+    tbody.querySelectorAll('.publish-qz-btn').forEach((btn) => {
+      btn.addEventListener('click', () => publishQuestionnaire(parseInt(btn.dataset.id, 10)));
+    });
+    tbody.querySelectorAll('.stats-qz-btn').forEach((btn) => {
+      btn.addEventListener('click', () => showQuestionnaireStats(parseInt(btn.dataset.id, 10)));
+    });
+    tbody.querySelectorAll('.delete-qz-btn').forEach((btn) => {
+      btn.addEventListener('click', () => deleteQuestionnaire(parseInt(btn.dataset.id, 10)));
+    });
+  }
+
+  function qzStatusLabel(status) {
+    const map = {
+      draft: '<span style="color:var(--text-secondary);background:rgba(255,255,255,0.06);padding:2px 10px;border-radius:99px;font-size:0.8125rem;">草稿</span>',
+      pending: '<span style="color:#f59e0b;background:rgba(245,158,11,0.12);padding:2px 10px;border-radius:99px;font-size:0.8125rem;">待开始</span>',
+      active: '<span style="color:#22c55e;background:rgba(34,197,94,0.12);padding:2px 10px;border-radius:99px;font-size:0.8125rem;">进行中</span>',
+      closed: '<span style="color:var(--danger);background:rgba(239,68,68,0.12);padding:2px 10px;border-radius:99px;font-size:0.8125rem;">已截止</span>',
+    };
+    return map[status] || escapeHtml(status);
+  }
+
+  function openQuestionnaireAdd() {
+    qzWizardStep = 1;
+    qzDraftQuestions = [];
+    qzEditId = null;
+    document.getElementById('qzTitle').value = '';
+    document.getElementById('qzDescription').value = '';
+    document.getElementById('qzStartTime').value = '';
+    document.getElementById('qzEndTime').value = '';
+    document.getElementById('qzWizardTitle').textContent = '新建问卷';
+    qzGoStep(1);
+    document.getElementById('questionnaireWizardOverlay').classList.add('show');
+  }
+
+  async function openQuestionnaireEdit(id) {
+    const q = allQuestionnaires.find((x) => x.id === id);
+    if (!q) return;
+    qzEditId = id;
+    document.getElementById('qzTitle').value = q.title || '';
+    document.getElementById('qzDescription').value = q.description || '';
+    document.getElementById('qzStartTime').value = q.startTime ? q.startTime.slice(0, 16) : '';
+    document.getElementById('qzEndTime').value = q.endTime ? q.endTime.slice(0, 16) : '';
+    document.getElementById('qzWizardTitle').textContent = '编辑问卷';
+    const { data } = await api('/api/questionnaires/admin/' + id);
+    if (data && data.ok && data.data) {
+      const qData = data.data;
+      qzDraftQuestions = (qData.questions || []).map((qq) => ({
+        id: qq.id,
+        type: qq.type,
+        title: qq.title,
+        required: qq.required,
+        options: Array.isArray(qq.options) ? [...qq.options] : [],
+      }));
+    } else {
+      qzDraftQuestions = [];
+    }
+    qzGoStep(1);
+    document.getElementById('questionnaireWizardOverlay').classList.add('show');
+  }
+
+  async function deleteQuestionnaire(id) {
+    if (!confirm('确定删除该问卷？所有作答数据也将一并删除。')) return;
+    const { data } = await api('/api/questionnaires/admin/' + id, { method: 'DELETE' });
+    if (data && data.ok) {
+      showToast('已删除', 'success');
+      loadQuestionnaires();
+    } else {
+      showToast((data && data.message) || '删除失败', 'error');
+    }
+  }
+
+  async function publishQuestionnaire(id) {
+    if (!confirm('确定发布该问卷？发布后题目将不可修改。')) return;
+    const { data } = await api('/api/questionnaires/admin/' + id + '/publish', { method: 'PUT' });
+    if (data && data.ok) {
+      showToast('已发布', 'success');
+      loadQuestionnaires();
+    } else {
+      showToast((data && data.message) || '发布失败', 'error');
+    }
+  }
+
+  async function showQuestionnaireStats(id) {
+    const overlay = document.getElementById('questionnaireStatsOverlay');
+    const content = document.getElementById('questionnaireStatsContent');
+    const q = allQuestionnaires.find((x) => x.id === id);
+    content.innerHTML = '<p style="text-align:center;color:var(--text-secondary);padding:40px 0;">加载中...</p>';
+    document.getElementById('questionnaireStatsTitle').textContent = q ? q.title + ' — 作答统计' : '作答统计';
+    overlay.classList.add('show');
+
+    const statsRes = await api('/api/questionnaires/admin/' + id + '/stats');
+
+    if (!statsRes.data || !statsRes.data.ok) {
+      content.innerHTML = '<p style="color:var(--danger);text-align:center;padding:40px 0;">加载统计数据失败</p>';
+      return;
+    }
+
+    const stats = statsRes.data.data;
+    const questions = stats.questions || [];
+
+    if (!questions.length) {
+      content.innerHTML = '<p style="color:var(--text-secondary);text-align:center;padding:40px 0;">暂无题目数据</p>';
+      return;
+    }
+
+    const PALETTE = ['#6366f1', '#8b5cf6', '#06b6d4', '#22c55e', '#f59e0b', '#ef4444', '#ec4899', '#14b8a6'];
+
+    let html = `<div style="margin-bottom:20px;font-size:0.9375rem;color:var(--text-secondary);">共 <strong style="color:var(--text-primary);">${stats.totalResponses || 0}</strong> 人作答</div>`;
+
+    questions.forEach((q, qi) => {
+      const qStats = q.stats || {};
+      html += `<div style="margin-bottom:28px;padding:20px;background:rgba(255,255,255,0.04);border-radius:12px;">`;
+      html += `<div style="font-weight:600;margin-bottom:12px;">${qi + 1}. ${escapeHtml(q.title)}${q.required ? ' <span style="color:var(--danger);">*</span>' : ''}</div>`;
+
+      if (q.type === 'single' || q.type === 'multiple') {
+        const options = Array.isArray(q.options) ? q.options : [];
+        const counts = qStats.counts || {};
+        const total = Object.values(counts).reduce((s, v) => s + v, 0) || 1;
+        const slices = [];
+        let cumAngle = -90;
+
+        options.forEach((opt, oi) => {
+          const count = counts[oi] || counts[opt] || 0;
+          const pct = (count / total) * 100;
+          const angle = (count / total) * 360;
+          const startAngle = cumAngle;
+          const endAngle = cumAngle + angle;
+          cumAngle = endAngle;
+
+          const startRad = (startAngle * Math.PI) / 180;
+          const endRad = (endAngle * Math.PI) / 180;
+          const largeArc = angle > 180 ? 1 : 0;
+          const R = 80;
+          const cx = 100;
+          const cy = 100;
+          const innerR = 50;
+
+          const x1 = cx + R * Math.cos(startRad);
+          const y1 = cy + R * Math.sin(startRad);
+          const x2 = cx + R * Math.cos(endRad);
+          const y2 = cy + R * Math.sin(endRad);
+          const ix1 = cx + innerR * Math.cos(endRad);
+          const iy1 = cy + innerR * Math.sin(endRad);
+          const ix2 = cx + innerR * Math.cos(startRad);
+          const iy2 = cy + innerR * Math.sin(startRad);
+
+          if (angle > 0.5) {
+            slices.push(`<path d="M${x1},${y1} A${R},${R} 0 ${largeArc},1 ${x2},${y2} L${ix1},${iy1} A${innerR},${innerR} 0 ${largeArc},0 ${ix2},${iy2} Z" fill="${PALETTE[oi % PALETTE.length]}"/>`);
+          }
+        });
+
+        html += `<div style="display:flex;align-items:center;gap:24px;flex-wrap:wrap;">`;
+        if (total > 0) {
+          html += `<svg width="200" height="200" viewBox="0 0 200 200">${slices.join('')}<circle cx="100" cy="100" r="49" fill="var(--bg-primary, #111827)"/></svg>`;
+        }
+        html += `<div style="flex:1;min-width:160px;">`;
+        options.forEach((opt, oi) => {
+          const count = counts[oi] || counts[opt] || 0;
+          const pct = total ? ((count / total) * 100).toFixed(1) : '0.0';
+          html += `<div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;">`;
+          html += `<span style="display:inline-block;width:12px;height:12px;border-radius:3px;background:${PALETTE[oi % PALETTE.length]};flex-shrink:0;"></span>`;
+          html += `<span style="flex:1;font-size:0.875rem;">${escapeHtml(opt)}</span>`;
+          html += `<span style="font-size:0.8125rem;color:var(--text-secondary);white-space:nowrap;">${count} 票 (${pct}%)</span>`;
+          html += `</div>`;
+        });
+        html += `</div></div>`;
+      } else {
+        const answers = qStats.answers || [];
+        if (answers.length) {
+          html += `<div style="max-height:240px;overflow-y:auto;padding:12px;background:rgba(0,0,0,0.2);border-radius:8px;">`;
+          answers.forEach((a) => {
+            html += `<div style="padding:6px 0;border-bottom:1px solid rgba(255,255,255,0.06);font-size:0.875rem;">${escapeHtml(a)}</div>`;
+          });
+          html += `</div>`;
+        } else {
+          html += `<div style="color:var(--text-secondary);font-size:0.875rem;">暂无回答</div>`;
+        }
+      }
+      html += `</div>`;
+    });
+
+    content.innerHTML = html;
+  }
+
+  function qzGoStep(step) {
+    qzWizardStep = step;
+    document.getElementById('qzStep1').style.display = step === 1 ? '' : 'none';
+    document.getElementById('qzStep2').style.display = step === 2 ? '' : 'none';
+    document.getElementById('qzStep3').style.display = step === 3 ? '' : 'none';
+    document.querySelectorAll('#qzWizardSteps .qz-wizard-step').forEach((el, i) => {
+      el.classList.toggle('active', i < step);
+    });
+    if (step === 2) renderQzQuestions();
+    if (step === 3) renderQzPreview();
+  }
+
+  function qzNextStep() {
+    if (qzWizardStep === 1) {
+      const title = document.getElementById('qzTitle').value.trim();
+      if (!title) { showToast('请填写问卷标题', 'error'); return; }
+      qzGoStep(2);
+    } else if (qzWizardStep === 2) {
+      if (!qzDraftQuestions.length) { showToast('请至少添加一道题目', 'error'); return; }
+      qzGoStep(3);
+    }
+  }
+
+  function qzPrevStep() {
+    if (qzWizardStep > 1) qzGoStep(qzWizardStep - 1);
+  }
+
+  function qzAddQuestion(type) {
+    qzDraftQuestions.push({
+      type: type,
+      title: '',
+      required: false,
+      options: type === 'single' || type === 'multiple' ? ['', ''] : [],
+    });
+    renderQzQuestions();
+  }
+
+  function qzRemoveQuestion(index) {
+    qzDraftQuestions.splice(index, 1);
+    renderQzQuestions();
+  }
+
+  function qzMoveQuestionUp(index) {
+    if (index <= 0) return;
+    const tmp = qzDraftQuestions[index];
+    qzDraftQuestions[index] = qzDraftQuestions[index - 1];
+    qzDraftQuestions[index - 1] = tmp;
+    renderQzQuestions();
+  }
+
+  function qzMoveQuestionDown(index) {
+    if (index >= qzDraftQuestions.length - 1) return;
+    const tmp = qzDraftQuestions[index];
+    qzDraftQuestions[index] = qzDraftQuestions[index + 1];
+    qzDraftQuestions[index + 1] = tmp;
+    renderQzQuestions();
+  }
+
+  function qzAddOption(qIndex) {
+    qzDraftQuestions[qIndex].options.push('');
+    renderQzQuestions();
+  }
+
+  function qzRemoveOption(qIndex, oIndex) {
+    qzDraftQuestions[qIndex].options.splice(oIndex, 1);
+    renderQzQuestions();
+  }
+
+  function renderQzQuestions() {
+    const container = document.getElementById('qzQuestionsList');
+    if (!qzDraftQuestions.length) {
+      container.innerHTML = '<p style="text-align:center;color:var(--text-secondary);padding:24px;">暂无题目，请点击上方按钮添加</p>';
+      return;
+    }
+    const typeLabels = { single: '单选题', multiple: '多选题', text: '文本题' };
+    container.innerHTML = qzDraftQuestions.map((q, i) => {
+      const isChoice = q.type === 'single' || q.type === 'multiple';
+      let optionsHtml = '';
+      if (isChoice) {
+        optionsHtml = `<div class="qz-options-list" style="margin-top:8px;padding-left:12px;">`;
+        q.options.forEach((opt, oi) => {
+          optionsHtml += `<div style="display:flex;align-items:center;gap:6px;margin-bottom:4px;">`;
+          optionsHtml += `<span style="color:var(--text-secondary);font-size:0.8125rem;min-width:20px;">${oi + 1}.</span>`;
+          optionsHtml += `<input type="text" class="qz-option-input" data-qi="${i}" data-oi="${oi}" value="${escapeHtml(opt)}" style="flex:1;padding:4px 8px;border-radius:6px;border:1px solid rgba(255,255,255,0.1);background:rgba(255,255,255,0.04);color:var(--text-primary);font-size:0.875rem;" />`;
+          optionsHtml += `<button type="button" class="btn btn-ghost btn-sm qz-remove-opt-btn" data-qi="${i}" data-oi="${oi}" style="color:var(--danger);padding:2px 6px;">✕</button>`;
+          optionsHtml += `</div>`;
+        });
+        optionsHtml += `<button type="button" class="btn btn-ghost btn-sm qz-add-opt-btn" data-qi="${i}" style="margin-top:4px;color:var(--accent-start);">+ 添加选项</button>`;
+        optionsHtml += `</div>`;
+      }
+      return `<div class="qz-question-card" style="background:rgba(255,255,255,0.04);border-radius:10px;padding:16px;margin-bottom:12px;">
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;">
+          <span style="font-weight:600;font-size:0.9375rem;">第 ${i + 1} 题</span>
+          <span style="color:var(--accent-start);font-size:0.8125rem;background:rgba(99,102,241,0.12);padding:1px 8px;border-radius:99px;">${typeLabels[q.type] || q.type}</span>
+          <label style="margin-left:auto;display:flex;align-items:center;gap:4px;font-size:0.8125rem;color:var(--text-secondary);cursor:pointer;">
+            <input type="checkbox" class="qz-required-toggle" data-qi="${i}" ${q.required ? 'checked' : ''} /> 必填
+          </label>
+          <button type="button" class="btn btn-ghost btn-sm qz-up-btn" data-qi="${i}" ${i === 0 ? 'disabled style="opacity:0.3;"' : ''} style="padding:2px 6px;">↑</button>
+          <button type="button" class="btn btn-ghost btn-sm qz-down-btn" data-qi="${i}" ${i === qzDraftQuestions.length - 1 ? 'disabled style="opacity:0.3;"' : ''} style="padding:2px 6px;">↓</button>
+          <button type="button" class="btn btn-danger btn-sm qz-remove-btn" data-qi="${i}" style="padding:2px 6px;">删除</button>
+        </div>
+        <input type="text" class="qz-title-input" data-qi="${i}" value="${escapeHtml(q.title)}" placeholder="请输入题目" style="width:100%;padding:6px 10px;border-radius:6px;border:1px solid rgba(255,255,255,0.1);background:rgba(255,255,255,0.04);color:var(--text-primary);font-size:0.9375rem;" />
+        ${optionsHtml}
+      </div>`;
+    }).join('');
+
+    container.querySelectorAll('.qz-title-input').forEach((input) => {
+      input.addEventListener('input', (e) => {
+        qzDraftQuestions[parseInt(e.target.dataset.qi, 10)].title = e.target.value;
+      });
+    });
+    container.querySelectorAll('.qz-required-toggle').forEach((cb) => {
+      cb.addEventListener('change', (e) => {
+        qzDraftQuestions[parseInt(e.target.dataset.qi, 10)].required = e.target.checked;
+      });
+    });
+    container.querySelectorAll('.qz-remove-btn').forEach((btn) => {
+      btn.addEventListener('click', () => qzRemoveQuestion(parseInt(btn.dataset.qi, 10)));
+    });
+    container.querySelectorAll('.qz-up-btn').forEach((btn) => {
+      btn.addEventListener('click', () => qzMoveQuestionUp(parseInt(btn.dataset.qi, 10)));
+    });
+    container.querySelectorAll('.qz-down-btn').forEach((btn) => {
+      btn.addEventListener('click', () => qzMoveQuestionDown(parseInt(btn.dataset.qi, 10)));
+    });
+    container.querySelectorAll('.qz-option-input').forEach((input) => {
+      input.addEventListener('input', (e) => {
+        qzDraftQuestions[parseInt(e.target.dataset.qi, 10)].options[parseInt(e.target.dataset.oi, 10)] = e.target.value;
+      });
+    });
+    container.querySelectorAll('.qz-remove-opt-btn').forEach((btn) => {
+      btn.addEventListener('click', () => qzRemoveOption(parseInt(btn.dataset.qi, 10), parseInt(btn.dataset.oi, 10)));
+    });
+    container.querySelectorAll('.qz-add-opt-btn').forEach((btn) => {
+      btn.addEventListener('click', () => qzAddOption(parseInt(btn.dataset.qi, 10)));
+    });
+  }
+
+  function renderQzPreview() {
+    const container = document.getElementById('qzPreview');
+    const title = document.getElementById('qzTitle').value.trim();
+    const desc = document.getElementById('qzDescription').value.trim();
+    const typeLabels = { single: '单选题', multiple: '多选题', text: '文本题' };
+    let html = `<div style="margin-bottom:20px;">`;
+    html += `<h3 style="font-size:1.25rem;font-weight:600;margin-bottom:6px;">${escapeHtml(title || '未命名问卷')}</h3>`;
+    if (desc) html += `<p style="color:var(--text-secondary);font-size:0.9375rem;">${escapeHtml(desc)}</p>`;
+    html += `</div>`;
+    qzDraftQuestions.forEach((q, i) => {
+      const isChoice = q.type === 'single' || q.type === 'multiple';
+      html += `<div style="margin-bottom:20px;padding:16px;background:rgba(255,255,255,0.04);border-radius:10px;">`;
+      html += `<div style="font-weight:600;margin-bottom:10px;">${i + 1}. ${escapeHtml(q.title || '未填写题目')}${q.required ? ' <span style="color:var(--danger);">*</span>' : ''} <span style="color:var(--accent-start);font-size:0.75rem;margin-left:6px;">[${typeLabels[q.type]}]</span></div>`;
+      if (isChoice) {
+        (q.options || []).forEach((opt, oi) => {
+          if (q.type === 'single') {
+            html += `<label style="display:flex;align-items:center;gap:8px;margin-bottom:6px;cursor:pointer;font-size:0.9375rem;"><input type="radio" disabled /> ${escapeHtml(opt || '选项 ' + (oi + 1))}</label>`;
+          } else {
+            html += `<label style="display:flex;align-items:center;gap:8px;margin-bottom:6px;cursor:pointer;font-size:0.9375rem;"><input type="checkbox" disabled /> ${escapeHtml(opt || '选项 ' + (oi + 1))}</label>`;
+          }
+        });
+      } else {
+        html += `<textarea disabled rows="3" style="width:100%;border-radius:6px;border:1px solid rgba(255,255,255,0.1);background:rgba(255,255,255,0.04);color:var(--text-secondary);font-size:0.875rem;padding:8px;resize:vertical;" placeholder="用户作答区域"></textarea>`;
+      }
+      html += `</div>`;
+    });
+    container.innerHTML = html;
+  }
+
+  async function qzSaveDraft() {
+    const title = document.getElementById('qzTitle').value.trim();
+    const description = document.getElementById('qzDescription').value.trim();
+    const startTime = document.getElementById('qzStartTime').value;
+    const endTime = document.getElementById('qzEndTime').value;
+    if (!title) { showToast('请填写问卷标题', 'error'); return; }
+    if (!startTime) { showToast('请填写开始时间', 'error'); return; }
+    if (!endTime) { showToast('请填写结束时间', 'error'); return; }
+    if (!qzDraftQuestions.length) { showToast('请至少添加一道题目', 'error'); return; }
+    for (let i = 0; i < qzDraftQuestions.length; i++) {
+      if (!qzDraftQuestions[i].title.trim()) {
+        showToast(`第 ${i + 1} 题缺少标题`, 'error');
+        return;
+      }
+      if (qzDraftQuestions[i].type === 'single' || qzDraftQuestions[i].type === 'multiple') {
+        const validOpts = qzDraftQuestions[i].options.filter((o) => o.trim());
+        if (validOpts.length < 2) {
+          showToast(`第 ${i + 1} 题至少需要两个选项`, 'error');
+          return;
+        }
+      }
+    }
+    const questions = qzDraftQuestions.map((q) => ({
+      type: q.type,
+      title: q.title.trim(),
+      required: q.required,
+      options: q.type === 'single' || q.type === 'multiple' ? q.options.map((o) => o.trim()) : [],
+    }));
+    const basicPayload = { title, description, startTime, endTime };
+    let savedId = qzEditId;
+    try {
+      if (savedId) {
+        const { data: updateRes } = await api('/api/questionnaires/admin/' + savedId, {
+          method: 'PUT',
+          body: JSON.stringify(basicPayload),
+        });
+        if (!updateRes || !updateRes.ok) {
+          showToast((updateRes && updateRes.message) || '保存失败', 'error');
+          return;
+        }
+      } else {
+        const { data: createRes } = await api('/api/questionnaires/admin', {
+          method: 'POST',
+          body: JSON.stringify(basicPayload),
+        });
+        if (!createRes || !createRes.ok) {
+          showToast((createRes && createRes.message) || '创建失败', 'error');
+          return;
+        }
+        savedId = createRes.data && createRes.data.id;
+      }
+      if (savedId) {
+        const { data: qRes } = await api('/api/questionnaires/admin/' + savedId + '/questions', {
+          method: 'PUT',
+          body: JSON.stringify({ questions }),
+        });
+        if (!qRes || !qRes.ok) {
+          showToast((qRes && qRes.message) || '保存题目失败', 'error');
+          return;
+        }
+      }
+      qzEditId = savedId;
+      showToast(qzEditId ? '保存成功' : '创建成功', 'success');
+      document.getElementById('questionnaireWizardOverlay').classList.remove('show');
+      loadQuestionnaires();
+      return savedId;
+    } catch (e) {
+      showToast('保存失败', 'error');
+      return null;
+    }
+  }
+
+  document.getElementById('addQuestionnaireBtn') && document.getElementById('addQuestionnaireBtn').addEventListener('click', openQuestionnaireAdd);
+
+  document.getElementById('qzNextBtn') && document.getElementById('qzNextBtn').addEventListener('click', qzNextStep);
+  document.getElementById('qzPrevBtn') && document.getElementById('qzPrevBtn').addEventListener('click', qzPrevStep);
+  document.getElementById('qzPublishBtn') && document.getElementById('qzPublishBtn').addEventListener('click', async () => {
+    const savedId = await qzSaveDraft();
+    if (savedId) {
+      await publishQuestionnaire(savedId);
+    }
+  });
+  document.getElementById('qzAddSingleBtn') && document.getElementById('qzAddSingleBtn').addEventListener('click', () => qzAddQuestion('single'));
+  document.getElementById('qzAddMultipleBtn') && document.getElementById('qzAddMultipleBtn').addEventListener('click', () => qzAddQuestion('multiple'));
+  document.getElementById('qzAddTextBtn') && document.getElementById('qzAddTextBtn').addEventListener('click', () => qzAddQuestion('text'));
+
+  document.getElementById('qzCancelBtn') && document.getElementById('qzCancelBtn').addEventListener('click', () => {
+    document.getElementById('questionnaireWizardOverlay').classList.remove('show');
+  });
+  document.getElementById('questionnaireWizardOverlay') && document.getElementById('questionnaireWizardOverlay').addEventListener('click', (e) => {
+    if (e.target === document.getElementById('questionnaireWizardOverlay')) {
+      document.getElementById('questionnaireWizardOverlay').classList.remove('show');
+    }
+  });
+
+  document.getElementById('questionnaireStatsClose') && document.getElementById('questionnaireStatsClose').addEventListener('click', () => {
+    document.getElementById('questionnaireStatsOverlay').classList.remove('show');
+  });
+  document.getElementById('questionnaireStatsOverlay') && document.getElementById('questionnaireStatsOverlay').addEventListener('click', (e) => {
+    if (e.target === document.getElementById('questionnaireStatsOverlay')) {
+      document.getElementById('questionnaireStatsOverlay').classList.remove('show');
+    }
   });
 
   // ========== 导航绑定 ==========

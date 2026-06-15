@@ -184,17 +184,23 @@
     const coursesView = document.getElementById('coursesView');
     const gradesView = document.getElementById('gradesView');
     const announcementsView = document.getElementById('announcementsView');
+    const questionnairesView = document.getElementById('questionnairesView');
+    const questionnaireFillView = document.getElementById('questionnaireFillView');
     const coursesSemester = document.getElementById('coursesSemesterSelector');
     if (tab === 'courses') {
       coursesView.style.display = '';
       gradesView.style.display = 'none';
       announcementsView.style.display = 'none';
+      questionnairesView.style.display = 'none';
+      questionnaireFillView.style.display = 'none';
       coursesSemester.style.display = '';
       document.getElementById('pageTitle').textContent = '课程中心';
     } else if (tab === 'grades') {
       coursesView.style.display = 'none';
       gradesView.style.display = '';
       announcementsView.style.display = 'none';
+      questionnairesView.style.display = 'none';
+      questionnaireFillView.style.display = 'none';
       coursesSemester.style.display = 'none';
       document.getElementById('pageTitle').textContent = '我的成绩';
       loadGrades();
@@ -202,9 +208,20 @@
       coursesView.style.display = 'none';
       gradesView.style.display = 'none';
       announcementsView.style.display = '';
+      questionnairesView.style.display = 'none';
+      questionnaireFillView.style.display = 'none';
       coursesSemester.style.display = 'none';
       document.getElementById('pageTitle').textContent = '公告中心';
       loadStudentAnnouncements();
+    } else if (tab === 'questionnaires') {
+      coursesView.style.display = 'none';
+      gradesView.style.display = 'none';
+      announcementsView.style.display = 'none';
+      questionnairesView.style.display = '';
+      questionnaireFillView.style.display = 'none';
+      coursesSemester.style.display = 'none';
+      document.getElementById('pageTitle').textContent = '问卷';
+      loadStudentQuestionnaires();
     }
   }
 
@@ -1015,7 +1032,212 @@
         Promise.all([loadCourses(), loadMyCourses()]);
       });
     });
+
+    loadStudentQuestionnaires();
   }
+
+  let qzCurrentFillId = null;
+  let qzCurrentFillData = null;
+  let qzUnfilledCount = 0;
+
+  async function loadStudentQuestionnaires() {
+    const availableEl = document.getElementById('qzAvailableList');
+    const answeredEl = document.getElementById('qzAnsweredList');
+    const expiredEl = document.getElementById('qzExpiredList');
+    availableEl.innerHTML = '<div style="text-align:center;color:var(--text-secondary);padding:40px;">加载中...</div>';
+    answeredEl.innerHTML = '';
+    expiredEl.innerHTML = '';
+    const { data } = await api('/api/questionnaires/student/' + user.id);
+    if (!data || !data.ok) {
+      availableEl.innerHTML = '<div style="text-align:center;color:var(--danger);padding:40px;">加载失败</div>';
+      return;
+    }
+    const result = data.data || {};
+    const available = result.available || [];
+    const answered = result.answered || [];
+    const expired = result.expired || [];
+    qzUnfilledCount = result.unfilledCount || 0;
+    const badge = document.getElementById('questionnaireBadge');
+    if (badge) {
+      if (qzUnfilledCount > 0) {
+        badge.textContent = qzUnfilledCount;
+        badge.style.display = '';
+      } else {
+        badge.style.display = 'none';
+      }
+    }
+    if (!available.length) {
+      availableEl.innerHTML = '<div style="text-align:center;color:var(--text-secondary);padding:40px;">暂无待填写问卷</div>';
+    } else {
+      availableEl.innerHTML = available.map((q) => renderQzCard(q, 'available')).join('');
+      availableEl.querySelectorAll('[data-action="fill"]').forEach((btn) => {
+        btn.addEventListener('click', () => openQuestionnaireFill(parseInt(btn.dataset.id, 10)));
+      });
+    }
+    if (!answered.length) {
+      answeredEl.innerHTML = '<div style="text-align:center;color:var(--text-secondary);padding:40px;">暂无</div>';
+    } else {
+      answeredEl.innerHTML = answered.map((q) => renderQzCard(q, 'answered')).join('');
+    }
+    if (!expired.length) {
+      expiredEl.innerHTML = '<div style="text-align:center;color:var(--text-secondary);padding:40px;">暂无</div>';
+    } else {
+      expiredEl.innerHTML = expired.map((q) => renderQzCard(q, 'expired')).join('');
+    }
+  }
+
+  function renderQzCard(q, status) {
+    const timeRange = (q.startTime || q.endTime)
+      ? `${formatDateTime(q.startTime)} ~ ${formatDateTime(q.endTime)}`
+      : '';
+    const questionCount = q.questionCount || (q.questions ? q.questions.length : 0);
+    let statusHtml = '';
+    let actionsHtml = '';
+    if (status === 'available') {
+      statusHtml = '';
+      actionsHtml = `<button type="button" class="btn btn-primary btn-sm" data-action="fill" data-id="${q.id}">填写</button>`;
+    } else if (status === 'answered') {
+      statusHtml = '<span class="qz-status-badge qz-status-answered">已填写</span>';
+      actionsHtml = '';
+    } else if (status === 'expired') {
+      statusHtml = '<span class="qz-status-badge qz-status-expired">已截止</span>';
+      actionsHtml = '';
+    }
+    return `
+      <div class="qz-card">
+        <div class="qz-card-body">
+          <div class="qz-card-title">${escapeHtml(q.title)}</div>
+          <div class="qz-card-meta">
+            ${timeRange ? `<span>${timeRange}</span>` : ''}
+            <span>${questionCount} 题</span>
+          </div>
+        </div>
+        <div class="qz-card-actions">
+          ${statusHtml}
+          ${actionsHtml}
+        </div>
+      </div>`;
+  }
+
+  async function openQuestionnaireFill(id) {
+    qzCurrentFillId = id;
+    qzCurrentFillData = null;
+    const contentEl = document.getElementById('qzFillContent');
+    contentEl.innerHTML = '<div style="text-align:center;color:var(--text-secondary);padding:60px 0;">加载中...</div>';
+    document.getElementById('questionnaireFillView').style.display = '';
+    document.getElementById('questionnairesView').style.display = 'none';
+    const { data } = await api('/api/questionnaires/' + id + '?studentId=' + user.id);
+    if (!data || !data.ok || !data.data) {
+      contentEl.innerHTML = '<div style="text-align:center;color:var(--danger);padding:60px 0;">加载失败</div>';
+      return;
+    }
+    const qz = data.data;
+    qzCurrentFillData = qz;
+    const submitted = data.submitted || qz.submitted || false;
+    if (submitted) {
+      contentEl.innerHTML = `
+        <div class="qz-fill-header">
+          <h2 class="qz-fill-title">${escapeHtml(qz.title)}</h2>
+          <span class="qz-status-badge qz-status-answered">已提交</span>
+        </div>
+        <div style="text-align:center;color:var(--text-secondary);padding:40px 0;">您已完成此问卷的填写</div>`;
+      return;
+    }
+    const questions = qz.questions || [];
+    let questionsHtml = '';
+    for (let i = 0; i < questions.length; i++) {
+      const q = questions[i];
+      const required = q.required;
+      const requiredMark = required ? '<span style="color:var(--danger);margin-left:4px;">*</span>' : '';
+      questionsHtml += `<div class="qz-question-item" data-qidx="${i}">
+        <div class="qz-question-title">${i + 1}. ${escapeHtml(q.title)}${requiredMark}</div>
+        <div class="qz-question-options">`;
+      if (q.type === 'single') {
+        const options = q.options || [];
+        for (let j = 0; j < options.length; j++) {
+          questionsHtml += `
+          <label class="qz-option-label">
+            <input type="radio" name="qz_q_${i}" value="${j}" data-qidx="${i}" data-oidx="${j}" />
+            <span>${escapeHtml(options[j])}</span>
+          </label>`;
+        }
+      } else if (q.type === 'multiple') {
+        const options = q.options || [];
+        for (let j = 0; j < options.length; j++) {
+          questionsHtml += `
+          <label class="qz-option-label">
+            <input type="checkbox" name="qz_q_${i}" value="${j}" data-qidx="${i}" data-oidx="${j}" />
+            <span>${escapeHtml(options[j])}</span>
+          </label>`;
+        }
+      } else if (q.type === 'text') {
+        questionsHtml += `
+          <textarea class="qz-text-input" name="qz_q_${i}" data-qidx="${i}" rows="3" placeholder="请输入您的回答"></textarea>`;
+      }
+      questionsHtml += '</div></div>';
+    }
+    contentEl.innerHTML = `
+      <div class="qz-fill-header">
+        <h2 class="qz-fill-title">${escapeHtml(qz.title)}</h2>
+      </div>
+      <div class="qz-question-list">${questionsHtml}</div>
+      <div class="qz-fill-actions">
+        <button type="button" class="btn btn-primary" id="qzSubmitBtn">提交问卷</button>
+      </div>`;
+    document.getElementById('qzSubmitBtn').addEventListener('click', () => submitQuestionnaire(id));
+  }
+
+  async function submitQuestionnaire(id) {
+    const questions = qzCurrentFillData ? qzCurrentFillData.questions || [] : [];
+    const answers = [];
+    for (let i = 0; i < questions.length; i++) {
+      const q = questions[i];
+      if (q.type === 'single') {
+        const checked = document.querySelector(`input[name="qz_q_${i}"]:checked`);
+        if (q.required && !checked) {
+          showToast(`请完成第 ${i + 1} 题`, 'error');
+          return;
+        }
+        answers.push({ questionId: q.id, answer: checked ? parseInt(checked.value, 10) : null });
+      } else if (q.type === 'multiple') {
+        const checked = document.querySelectorAll(`input[name="qz_q_${i}"]:checked`);
+        if (q.required && checked.length === 0) {
+          showToast(`请完成第 ${i + 1} 题`, 'error');
+          return;
+        }
+        const selected = Array.from(checked).map((c) => parseInt(c.value, 10));
+        answers.push({ questionId: q.id, answer: selected });
+      } else if (q.type === 'text') {
+        const textarea = document.querySelector(`textarea[name="qz_q_${i}"]`);
+        const val = textarea ? textarea.value.trim() : '';
+        if (q.required && !val) {
+          showToast(`请完成第 ${i + 1} 题`, 'error');
+          return;
+        }
+        answers.push({ questionId: q.id, answer: val });
+      }
+    }
+    const { data } = await api('/api/questionnaires/' + id + '/submit', {
+      method: 'POST',
+      body: JSON.stringify({ studentId: user.id, answers }),
+    });
+    if (data && data.ok) {
+      showToast('问卷提交成功', 'success');
+      qzBackToList();
+      loadStudentQuestionnaires();
+    } else {
+      showToast((data && data.message) || '提交失败', 'error');
+    }
+  }
+
+  function qzBackToList() {
+    document.getElementById('questionnaireFillView').style.display = 'none';
+    document.getElementById('questionnairesView').style.display = '';
+    qzCurrentFillId = null;
+    qzCurrentFillData = null;
+  }
+
+  document.getElementById('qzBackToListBtn').addEventListener('click', qzBackToList);
 
   init();
 })();

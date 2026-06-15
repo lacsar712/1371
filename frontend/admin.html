@@ -48,6 +48,10 @@
           <span class="nav-icon" aria-hidden="true">📢</span>
           <span>公告管理</span>
         </a>
+        <a href="#" data-page="questionnaires">
+          <span class="nav-icon" aria-hidden="true">📝</span>
+          <span>问卷管理</span>
+        </a>
       </nav>
     </aside>
     <div class="admin-main">
@@ -336,6 +340,34 @@
           </table>
         </div>
         <div id="announcementPagination" class="msg-pagination"></div>
+      </div>
+
+      <!-- 问卷管理页面 -->
+      <div id="page-questionnaires" class="admin-content" style="display:none;">
+        <section class="content-toolbar">
+          <h2 class="toolbar-title">问卷列表</h2>
+          <div class="toolbar-actions">
+            <button type="button" class="btn btn-primary" id="addQuestionnaireBtn">＋ 新建问卷</button>
+          </div>
+        </section>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>ID</th>
+                <th>标题</th>
+                <th>题目数</th>
+                <th>开始时间</th>
+                <th>结束时间</th>
+                <th>状态</th>
+                <th>操作</th>
+              </tr>
+            </thead>
+            <tbody id="questionnaireTableBody">
+              <tr><td colspan="7" style="text-align:center;color:var(--text-secondary);">加载中...</td></tr>
+            </tbody>
+          </table>
+        </div>
       </div>
 
     </div>
@@ -631,6 +663,86 @@
   </div>
 
   <div id="toast" class="toast" role="alert" aria-live="polite"></div>
+
+  <!-- 问卷向导弹窗 -->
+  <div id="questionnaireWizardOverlay" class="modal-overlay">
+    <div class="modal" style="max-width:860px;">
+      <h2 id="questionnaireWizardTitle">新建问卷</h2>
+      <div class="qz-wizard-steps" id="qzWizardSteps">
+        <div class="qz-wizard-step active" data-step="1">
+          <span class="qz-step-num">1</span>
+          <span class="qz-step-label">基本信息</span>
+        </div>
+        <div class="qz-wizard-step" data-step="2">
+          <span class="qz-step-num">2</span>
+          <span class="qz-step-label">编辑题目</span>
+        </div>
+        <div class="qz-wizard-step" data-step="3">
+          <span class="qz-step-num">3</span>
+          <span class="qz-step-label">预览发布</span>
+        </div>
+      </div>
+
+      <!-- Step 1: 基本信息 -->
+      <div id="qzStep1" class="qz-step-content">
+        <input type="hidden" id="qzEditId" />
+        <div class="form-group">
+          <label for="qzTitle">问卷标题 <span style="color:#ef4444;">*</span></label>
+          <input type="text" id="qzTitle" required placeholder="请输入问卷标题" />
+        </div>
+        <div class="form-group">
+          <label for="qzDescription">问卷说明</label>
+          <textarea id="qzDescription" rows="3" placeholder="可选，填写问卷说明或引导语" style="width:100%;resize:vertical;padding:12px;border-radius:10px;border:1px solid var(--bg-glass-border);background:rgba(255,255,255,0.04);color:var(--text-primary);font-size:0.9375rem;font-family:inherit;"></textarea>
+        </div>
+        <div class="form-row">
+          <div class="form-group" style="flex:1;">
+            <label for="qzStartTime">开始时间 <span style="color:#ef4444;">*</span></label>
+            <input type="datetime-local" id="qzStartTime" required />
+          </div>
+          <div class="form-group" style="flex:1;">
+            <label for="qzEndTime">结束时间 <span style="color:#ef4444;">*</span></label>
+            <input type="datetime-local" id="qzEndTime" required />
+          </div>
+        </div>
+      </div>
+
+      <!-- Step 2: 编辑题目 -->
+      <div id="qzStep2" class="qz-step-content" style="display:none;">
+        <div class="qz-questions-toolbar">
+          <button type="button" class="btn btn-primary btn-sm" id="qzAddSingleBtn">＋ 单选题</button>
+          <button type="button" class="btn btn-primary btn-sm" id="qzAddMultipleBtn">＋ 多选题</button>
+          <button type="button" class="btn btn-primary btn-sm" id="qzAddTextBtn">＋ 文本题</button>
+        </div>
+        <div id="qzQuestionsList" class="qz-questions-list">
+          <p style="text-align:center;color:var(--text-secondary);padding:40px;">暂无题目，请点击上方按钮添加</p>
+        </div>
+      </div>
+
+      <!-- Step 3: 预览发布 -->
+      <div id="qzStep3" class="qz-step-content" style="display:none;">
+        <div id="qzPreview" class="qz-preview"></div>
+      </div>
+
+      <div class="modal-actions qz-wizard-actions">
+        <button type="button" class="btn btn-ghost" id="qzCancelBtn">取消</button>
+        <button type="button" class="btn btn-ghost" id="qzPrevBtn" style="display:none;">上一步</button>
+        <button type="button" class="btn btn-primary" id="qzNextBtn">下一步</button>
+        <button type="button" class="btn btn-primary" id="qzPublishBtn" style="display:none;">发布上线</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 问卷统计弹窗 -->
+  <div id="questionnaireStatsOverlay" class="modal-overlay">
+    <div class="modal" style="max-width:900px;">
+      <h2 id="questionnaireStatsTitle">问卷统计</h2>
+      <div id="questionnaireStatsContent" style="max-height:70vh;overflow-y:auto;"></div>
+      <div class="modal-actions" style="padding:0 32px 24px;">
+        <button type="button" class="btn btn-ghost" id="questionnaireStatsClose">关闭</button>
+      </div>
+    </div>
+  </div>
+
   <script src="js/messages.js"></script>
   <script src="js/admin.js"></script>
 </body>

@@ -29,6 +29,7 @@ const evaluationsRouter = require('./routes/evaluations');
 const messagesRouter = require('./routes/messages');
 const announcementsRouter = require('./routes/announcements');
 const { router: courseResourcesRouter, UPLOAD_DIR } = require('./routes/courseResources');
+const questionnairesRouter = require('./routes/questionnaires');
 const seed = require('./seed').seed;
 
 const PORT = parseInt(process.env.PORT || '8137', 10);
@@ -52,6 +53,7 @@ app.use('/api/evaluations', evaluationsRouter);
 app.use('/api/messages', messagesRouter);
 app.use('/api/announcements', announcementsRouter);
 app.use('/api/resources', courseResourcesRouter);
+app.use('/api/questionnaires', questionnairesRouter);
 app.use('/uploads', express.static(UPLOAD_DIR));
 
 app.use((err, req, res, next) => {
