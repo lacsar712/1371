@@ -7,7 +7,7 @@ module.exports = (sequelize) => {
       id: { type: DataTypes.INTEGER, primaryKey: true, autoIncrement: true },
       name: { type: DataTypes.STRING(128), allowNull: false, unique: true },
       createdAt: {
-        type: DataTypes.STRING,
+        type: DataTypes.DATE,
         field: 'created_at',
         defaultValue: DataTypes.NOW,
       },

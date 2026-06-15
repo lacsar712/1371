@@ -8,7 +8,7 @@ module.exports = (sequelize) => {
       name: { type: DataTypes.STRING(128), allowNull: false },
       majorId: { type: DataTypes.INTEGER, allowNull: false, field: 'major_id' },
       createdAt: {
-        type: DataTypes.STRING,
+        type: DataTypes.DATE,
         field: 'created_at',
         defaultValue: DataTypes.NOW,
       },

@@ -8,7 +8,7 @@ module.exports = (sequelize) => {
       name: { type: DataTypes.STRING(128), allowNull: false },
       collegeId: { type: DataTypes.INTEGER, allowNull: false, field: 'college_id' },
       createdAt: {
-        type: DataTypes.STRING,
+        type: DataTypes.DATE,
         field: 'created_at',
         defaultValue: DataTypes.NOW,
       },
