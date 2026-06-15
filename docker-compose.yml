@@ -8,12 +8,13 @@ services:
       - backend_data:/app/data
     ports:
       - "8137:8137"
+    stop_grace_period: 15s
     healthcheck:
-      test: ["CMD", "node", "-e", "require('http').get('http://127.0.0.1:8137/api/auth/ping', r => process.exit(r.statusCode === 200 ? 0 : 1)).on('error', () => process.exit(1))"]
-      interval: 5s
+      test: ["CMD", "node", "-e", "require('http').get('http://127.0.0.1:8137/readyz', r => process.exit(r.statusCode === 200 ? 0 : 1)).on('error', () => process.exit(1))"]
+      interval: 10s
       timeout: 3s
-      retries: 5
-      start_period: 20s
+      retries: 3
+      start_period: 5s
 
   frontend:
     build: ./frontend
